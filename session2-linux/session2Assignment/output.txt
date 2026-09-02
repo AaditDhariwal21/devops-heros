@@ -1,0 +1,104 @@
+===== TASK 1 =====
+--- ls -li (first column is inode) ---
+total 8
+44974 -rw-r--r-- 2 root root 12 Sep  2 16:19 file.txt
+44974 -rw-r--r-- 2 root root 12 Sep  2 16:19 hard.txt
+44975 lrwxrwxrwx 1 root root  8 Sep  2 16:19 soft.txt -> file.txt
+--- now delete the original ---
+total 4
+44974 -rw-r--r-- 1 root root 12 Sep  2 16:19 hard.txt
+44975 lrwxrwxrwx 1 root root  8 Sep  2 16:19 soft.txt -> file.txt
+--- hard link still works? ---
+hello world
+--- soft link still works? ---
+cat: soft.txt: No such file or directory
+--- deleting links ---
+
+===== TASK 2 =====
+--- what are they? ---
+ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=a20d46768ac3abdb6f7621ab4d8891509d5c181a, for GNU/Linux 3.2.0, stripped
+Perl script text executable
+--- useradd (low level) ---
+testuser1:x:1000:1000::/home/testuser1:/bin/sh
+ls: cannot access '/home/testuser1': No such file or directory
+--- adduser (recommended on ubuntu) ---
+usermod: no changes
+testuser2:x:1001:1001::/home/testuser2:/bin/bash
+.
+..
+.bash_logout
+.bashrc
+.profile
+--- cleanup ---
+userdel: testuser1 mail spool (/var/mail/testuser1) not found
+userdel: testuser1 home directory (/home/testuser1) not found
+
+===== TASK 3 =====
+--- last 5 log lines ---
+Sep 02 16:19:05 Legion userdel[501]: delete user 'testuser2'
+Sep 02 16:19:05 Legion userdel[501]: delete 'testuser2' from group 'users'
+Sep 02 16:19:05 Legion userdel[501]: removed group 'testuser2' owned by 'testuser2'
+Sep 02 16:19:05 Legion userdel[501]: removed shadow group 'testuser2' owned by 'testuser2'
+Sep 02 16:19:05 Legion userdel[501]: delete 'testuser2' from shadow group 'users'
+--- logs for one service (cron) ---
+Sep 02 16:19:03 Legion systemd[1]: Started cron.service - Regular background program processing daemon.
+Sep 02 16:19:03 Legion (cron)[105]: cron.service: Referenced but unset environment variable evaluates to an empty string: EXTRA_OPTS
+Sep 02 16:19:03 Legion cron[105]: (CRON) INFO (pidfile fd = 3)
+Sep 02 16:19:03 Legion cron[105]: (CRON) INFO (Running @reboot jobs)
+Sep 02 16:19:05 Legion systemd[1]: Stopping cron.service - Regular background program processing daemon...
+Sep 02 16:19:05 Legion systemd[1]: cron.service: Deactivated successfully.
+Sep 02 16:19:05 Legion systemd[1]: Stopped cron.service - Regular background program processing daemon.
+Sep 02 16:19:05 Legion systemd[1]: Started cron.service - Regular background program processing daemon.
+--- only errors ---
+Sep 02 16:19:03 Legion kernel: misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -2
+Sep 02 16:19:03 Legion kernel: misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -22
+Sep 02 16:19:03 Legion kernel: misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -22
+Sep 02 16:19:03 Legion kernel: misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -22
+Sep 02 16:19:03 Legion kernel: misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -2
+--- logs from last 5 minutes ---
+Sep 02 16:19:03 Legion cron[105]: (CRON) INFO (Running @reboot jobs)
+Sep 02 16:19:05 Legion systemd[1]: Stopping cron.service - Regular background program processing daemon...
+Sep 02 16:19:05 Legion systemd[1]: cron.service: Deactivated successfully.
+Sep 02 16:19:05 Legion systemd[1]: Stopped cron.service - Regular background program processing daemon.
+Sep 02 16:19:05 Legion systemd[1]: Started cron.service - Regular background program processing daemon.
+--- how much space logs use ---
+Archived and active journals take up 128M in the file system.
+
+===== TASK 4 =====
+--- files and dirs ---
+/root/lab2/practice
+total 8.0K
+-rw-r--r-- 1 root root 45 Sep  2 16:19 app.log
+-rw-r--r-- 1 root root 26 Sep  2 16:19 fruits.txt
+4 fruits.txt
+--- grep ---
+ERROR failed
+ERROR timeout
+2
+--- sort / uniq ---
+      2 apple
+      1 banana
+      1 cherry
+--- find ---
+./fruits.txt
+--- permissions ---
+-rwxr-xr-x 1 root root 26 Sep  2 16:19 fruits.txt
+--- disk and system ---
+Filesystem      Size  Used Avail Use% Mounted on
+none            3.9G     0  3.9G   0% /usr/lib/modules/6.18.33.1-microsoft-standard-WSL2
+none            3.9G  4.0K  3.9G   1% /mnt/wsl
+               total        used        free      shared  buff/cache   available
+Mem:           7.6Gi       829Mi       6.3Gi       3.6Mi       690Mi       6.8Gi
+Swap:          2.0Gi          0B       2.0Gi
+Linux Legion 6.18.33.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Fri Jun  5 01:12:21 UTC 2026 x86_64 GNU/Linux
+--- processes ---
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           1 12.2  0.1  24304 15324 ?        Ss   16:19   0:00 /sbin/init
+root           2  0.0  0.0   3180  2204 hvc0     Sl+  16:19   0:00 /init
+--- tar ---
+fruits.txt
+app.log
+--- network ---
+lo               UNKNOWN        127.0.0.1/8 10.255.255.254/32 ::1/128 
+eth0             UP             172.17.255.201/20 fe80::215:5dff:fe56:f45a/64 
+
