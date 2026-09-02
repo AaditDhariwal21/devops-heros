@@ -1,0 +1,78 @@
+===== hostname -I =====
+172.17.255.201 
+===== ip a =====
+lo               UNKNOWN        127.0.0.1/8 10.255.255.254/32 ::1/128 
+eth0             UP             172.17.255.201/20 fe80::215:5dff:fe56:f637/64 
+===== ip r =====
+default via 172.17.240.1 dev eth0 proto kernel 
+172.17.240.0/20 dev eth0 proto kernel scope link src 172.17.255.201 
+===== ping =====
+PING google.com (142.250.207.174) 56(84) bytes of data.
+64 bytes from pnbomb-bl-in-f14.1e100.net (142.250.207.174): icmp_seq=1 ttl=116 time=27.4 ms
+64 bytes from pnbomb-bl-in-f14.1e100.net (142.250.207.174): icmp_seq=2 ttl=116 time=38.6 ms
+64 bytes from pnbomb-bl-in-f14.1e100.net (142.250.207.174): icmp_seq=3 ttl=116 time=25.5 ms
+
+--- google.com ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2005ms
+rtt min/avg/max/mdev = 25.461/30.475/38.573/5.780 ms
+===== netstat -tuln =====
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State      
+tcp        0      0 127.0.0.53:53           0.0.0.0:*               LISTEN     
+tcp        0      0 10.255.255.254:53       0.0.0.0:*               LISTEN     
+tcp        0      0 127.0.0.54:53           0.0.0.0:*               LISTEN     
+udp        0      0 127.0.0.54:53           0.0.0.0:*                          
+udp        0      0 127.0.0.53:53           0.0.0.0:*                          
+udp        0      0 10.255.255.254:53       0.0.0.0:*                          
+===== ss -tuln =====
+Netid State  Recv-Q Send-Q  Local Address:Port Peer Address:Port
+udp   UNCONN 0      0          127.0.0.54:53        0.0.0.0:*   
+udp   UNCONN 0      0       127.0.0.53%lo:53        0.0.0.0:*   
+udp   UNCONN 0      0      10.255.255.254:53        0.0.0.0:*   
+udp   UNCONN 0      0           127.0.0.1:323       0.0.0.0:*   
+udp   UNCONN 0      0           127.0.0.1:323       0.0.0.0:*   
+udp   UNCONN 0      0               [::1]:323          [::]:*   
+udp   UNCONN 0      0               [::1]:323          [::]:*   
+===== nslookup =====
+Server:		10.255.255.254
+Address:	10.255.255.254#53
+
+Non-authoritative answer:
+Name:	google.com
+Address: 142.250.207.174
+Name:	google.com
+Address: 2404:6800:4009:807::200e
+
+===== dig =====
+142.250.207.174
+===== traceroute =====
+traceroute to google.com (142.250.207.174), 6 hops max, 60 byte packets
+ 1  Legion.mshome.net (172.17.240.1)  0.267 ms  0.258 ms *
+ 2  * wifi.height8tech.com (10.114.0.1)  10.687 ms  10.684 ms
+ 3  * * *
+ 4  * * *
+ 5  * * *
+ 6  * 115.112.15.114.static-chennai.vsnl.net.in (115.112.15.114)  15.090 ms  15.775 ms
+===== curl =====
+HTTP/2 200 
+content-type: text/html; charset=ISO-8859-1
+content-security-policy-report-only: object-src 'none';base-uri 'self';script-src 'nonce-Ag4gWrbk269mwNJk5_lPIQ' 'strict-dynamic' 'report-sample' 'unsafe-eval' 'unsafe-inline' https: http:;report-uri https://csp.withgoogle.com/csp/gws/other-hp
+accept-ch: Sec-CH-Prefers-Color-Scheme
+p3p: CP="This is not a P3P policy! See g.co/p3phelp for more info."
+date: Wed, 02 Sep 2026 16:33:17 GMT
+===== arp =====
+Address                  HWtype  HWaddress           Flags Mask            Iface
+172.17.240.1             ether   00:15:5d:6b:56:b4   C                     eth0
+===== whois =====
+   Domain Name: GOOGLE.COM
+   Registry Domain ID: 2138514_DOMAIN_COM-VRSN
+   Registrar WHOIS Server: whois.markmonitor.com
+   Registrar URL: http://www.markmonitor.com
+   Updated Date: 2019-09-09T15:39:04Z
+   Creation Date: 1997-09-15T04:00:00Z
+   Registry Expiry Date: 2028-09-14T04:00:00Z
+   Registrar: MarkMonitor Inc.
+   Registrar IANA ID: 292
+   Registrar Abuse Contact Email: abusecomplaints@markmonitor.com
+   Registrar Abuse Contact Phone: +1.2086851750
+   Domain Status: clientDeleteProhibited https://icann.org/epp#clientDeleteProhibited

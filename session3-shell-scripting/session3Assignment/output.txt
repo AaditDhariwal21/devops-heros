@@ -1,0 +1,37 @@
+Date: Wed Sep  2 16:31:30 UTC 2026
+Hostname: Legion
+Username: root
+
+Disk usage:
+Filesystem      Size  Used Avail Use% Mounted on
+none            3.9G     0  3.9G   0% /usr/lib/modules/6.18.33.1-microsoft-standard-WSL2
+none            3.9G  4.0K  3.9G   1% /mnt/wsl
+drivers         952G  790G  162G  83% /usr/lib/wsl/drivers
+/dev/sdd       1007G  1.5G  955G   1% /
+none            3.9G   36K  3.9G   1% /mnt/wslg
+none            3.9G     0  3.9G   0% /usr/lib/wsl/lib
+rootfs          3.8G  2.8M  3.8G   1% /init
+none            3.9G  600K  3.9G   1% /run
+none            3.9G     0  3.9G   0% /run/lock
+none            3.9G     0  3.9G   0% /run/shm
+none            3.9G   68K  3.9G   1% /mnt/wslg/versions.txt
+none            3.9G   68K  3.9G   1% /mnt/wslg/doc
+C:\             952G  790G  162G  83% /mnt/c
+none            1.0M     0  1.0M   0% /run/credentials/systemd-journald.service
+tmpfs           3.9G  4.0K  3.9G   1% /tmp
+none            1.0M     0  1.0M   0% /run/credentials/systemd-resolved.service
+none            1.0M     0  1.0M   0% /run/credentials/getty@tty1.service
+tmpfs           780M   12K  780M   1% /run/user/0
+
+Running processes:
+    PID TTY          TIME CMD
+    336 pts/0    00:00:00 bash
+    422 pts/0    00:00:00 bash
+    427 pts/0    00:00:00 ps
+
+
+Processes saved in myinfo/process.log
+    PID TTY          TIME CMD
+    336 pts/0    00:00:00 bash
+    422 pts/0    00:00:00 bash
+    430 pts/0    00:00:00 ps

@@ -5,7 +5,7 @@ basic commands from the cheat sheet. Ran it all in WSL Ubuntu because useradd an
 journalctl don't exist on Windows. Scripts are task1-links.sh, task2-users.sh,
 task3-journalctl.sh, task4-commands.sh. Full output is in output.txt.
 
-Output (the interesting bits):
+Output:
 
 ```
 --- ls -li (first column is inode) ---
