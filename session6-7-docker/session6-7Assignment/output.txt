@@ -1,0 +1,52 @@
+$ docker ps
+NAMES        IMAGE            PORTS                                         STATUS
+react        react-app        0.0.0.0:3002->80/tcp, [::]:3002->80/tcp       Up 38 seconds
+nginx        nginx-app        0.0.0.0:8083->80/tcp, [::]:8083->80/tcp       Up 39 seconds
+apache       apache-app       0.0.0.0:8082->80/tcp, [::]:8082->80/tcp       Up 39 seconds
+java         java-app         0.0.0.0:8081->8000/tcp, [::]:8081->8000/tcp   Up 39 seconds
+python       python-app       0.0.0.0:5001->5000/tcp, [::]:5001->5000/tcp   Up 39 seconds
+nodejs       nodejs-app       0.0.0.0:3001->3000/tcp, [::]:3001->3000/tcp   Up 40 seconds
+multistage   multistage-app   0.0.0.0:8080->3000/tcp, [::]:8080->3000/tcp   Up 40 seconds
+
+$ docker images
+REPOSITORY                TAG        SIZE
+react-app                 latest     102MB
+multistage-app            latest     247MB
+nginx-app                 latest     102MB
+apache-app                latest     175MB
+java-app                  latest     721MB
+python-app                latest     211MB
+nodejs-app                latest     209MB
+
+$ curl each app
+--- localhost:8080 (multistage) ---
+<h1>Hello World from Docker Multi-Stage Build!</h1>--- localhost:3001 (nodejs) ---
+<h1>Hello World from Node.js!</h1>--- localhost:5001 (python) ---
+<h1>Hello World from Python!</h1>--- localhost:8081 (java) ---
+<h1>Hello World from Java!</h1>--- localhost:8082 (apache) ---
+<!DOCTYPE html>
+<html>
+  <head><title>Apache</title></head>
+  <body>
+    <h1>Hello World from Apache!</h1>
+  </body>
+</html>
+--- localhost:8083 (nginx) ---
+<!DOCTYPE html>
+<html>
+  <head><title>Nginx</title></head>
+  <body>
+    <h1>Hello World from Nginx!</h1>
+  </body>
+</html>
+--- localhost:3002 (react) ---
+<!DOCTYPE html>
+<html>
+  <head><title>React App</title>  <script type="module" crossorigin src="/assets/index-CNilmQsF.js"></script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
+(React renders client-side, so the text is in the JS bundle:)
+Hello World from React!
