@@ -1,0 +1,41 @@
+$ docker network create frontend-net / backend-net / database-net
+NETWORK ID     NAME                        DRIVER    SCOPE
+fae3dbe0a920   backend-net                 bridge    local
+3d7e8228f4a4   database-net                bridge    local
+0cc637e47933   frontend-net                bridge    local
+
+$ docker ps
+NAMES         IMAGE          STATUS
+database      mysql:8        Up 3 minutes
+backend       alpine         Up 4 minutes
+frontend      nginx:alpine   Up 4 minutes
+
+# which networks each container is attached to:
+frontend   -> frontend-net 
+backend    -> database-net frontend-net 
+database   -> database-net 
+
+=== TEST 1: frontend -> backend (share frontend-net) ===
+$ docker exec frontend ping -c 2 backend
+PING backend (172.20.0.3): 56 data bytes
+64 bytes from 172.20.0.3: seq=0 ttl=64 time=0.127 ms
+64 bytes from 172.20.0.3: seq=1 ttl=64 time=0.081 ms
+
+--- backend ping statistics ---
+2 packets transmitted, 2 packets received, 0% packet loss
+round-trip min/avg/max = 0.081/0.104/0.127 ms
+
+=== TEST 2: backend -> database (share database-net) ===
+$ docker exec backend ping -c 2 database
+PING database (172.22.0.3): 56 data bytes
+64 bytes from 172.22.0.3: seq=0 ttl=64 time=0.125 ms
+64 bytes from 172.22.0.3: seq=1 ttl=64 time=0.063 ms
+
+--- database ping statistics ---
+2 packets transmitted, 2 packets received, 0% packet loss
+round-trip min/avg/max = 0.063/0.094/0.125 ms
+
+=== TEST 3: frontend -> database (no shared network) ===
+$ docker exec frontend ping -c 2 database
+ping: bad address 'database'
+^ fails - they share no network, so DNS does not even resolve

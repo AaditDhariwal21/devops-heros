@@ -1,0 +1,29 @@
+# Overlay networks need swarm mode, so initialise a single-node swarm:
+$ docker swarm init
+Swarm initialized: current node (gibeyzwflc43vgmo1u7jse19z) is now a manager.
+
+To add a worker to this swarm, run the following command:
+
+$ docker network create -d overlay my-overlay-net
+y9oa4jhzhxn2bg6w3ae89h565
+
+$ docker network ls
+NETWORK ID     NAME                        DRIVER    SCOPE
+fae3dbe0a920   backend-net                 bridge    local
+fe049c860f26   bridge                      bridge    local
+3d7e8228f4a4   database-net                bridge    local
+04819fd1fbee   docker_gwbridge             bridge    local
+0cc637e47933   frontend-net                bridge    local
+7a8fc8770285   host                        host      local
+95qfmfury9r8   ingress                     overlay   swarm
+y9oa4jhzhxn2   my-overlay-net              overlay   swarm
+c6327ac069c2   none                        null      local
+e39cb40889fc   searchtypeahead_cache-net   bridge    local
+4411ddf240ff   searchtypehead_cache-net    bridge    local
+
+$ docker network inspect my-overlay-net (scope + driver)
+Driver: overlay   Scope: swarm   Attachable: false
+
+# ingress is the overlay network swarm creates automatically for published ports.
+# Note the SCOPE column: bridge networks are 'local', overlay is 'swarm'
+# (meaning it spans every node in the swarm, not just this machine).

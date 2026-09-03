@@ -1,0 +1,17 @@
+$ docker run -d --name apache-host --network host httpd:2.4
+NAMES         IMAGE       PORTS     STATUS
+apache-host   httpd:2.4             Up About a minute
+
+$ docker inspect -f '{{.HostConfig.NetworkMode}}' apache-host
+host
+
+# curl port 80 from inside the host network namespace:
+$ docker run --rm --network host alpine curl -s http://localhost:80
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<title>It works! Apache httpd</title>
+</head>
+<body>
+<p>It works!</p>
+</body>

@@ -1,0 +1,18 @@
+$ cat website/index.html
+<h1>Hello students</h1>
+
+$ docker run -d --name nginx-bind -p 8085:80 -v <folder>:/usr/share/nginx/html nginx:alpine
+
+$ curl http://localhost:8085
+<h1>Hello students</h1>
+
+# now edit index.html on the host, container untouched:
+$ echo '<h1>Hello students - updated without restarting!</h1>' > website/index.html
+
+$ curl http://localhost:8085
+<h1>Hello students - updated without restarting!</h1>
+
+# container start time before and after the edit - identical, so no restart:
+StartedAt: 2026-09-03T12:15:05.09735877Z
+NAMES        STATUS
+nginx-bind   Up About a minute
