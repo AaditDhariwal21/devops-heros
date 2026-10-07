@@ -1,0 +1,39 @@
+$ kubectl apply -f broken.yaml
+pod/fail-1-crashloop-pod created
+
+$ kubectl get pod fail-1-crashloop-pod
+NAME                   READY   STATUS             RESTARTS      AGE
+fail-1-crashloop-pod   0/1     CrashLoopBackOff   4 (68s ago)   2m29s
+
+$ kubectl describe pod fail-1-crashloop-pod   (trimmed)
+    State:          Waiting
+      Reason:       CrashLoopBackOff
+    Last State:     Terminated
+      Reason:       Error
+      Exit Code:    1
+    Restart Count:  4
+Events:
+  Type     Reason     Age                  From               Message
+  ----     ------     ----                 ----               -------
+  Normal   Scheduled  2m29s                default-scheduler  Successfully assigned default/fail-1-crashloop-pod to minikube
+  Normal   Pulled     68s (x5 over 2m29s)  kubelet            Container image "python:3.11-alpine" already present on machine and can be accessed by the pod
+  Normal   Created    68s (x5 over 2m29s)  kubelet            Container created
+  Normal   Started    68s (x5 over 2m29s)  kubelet            Container started
+  Warning  BackOff    0s (x5 over 2m28s)   kubelet            Back-off restarting failed container python-app in pod fail-1-crashloop-pod_default(305b7efb-8f70-4b15-a387-5fc82076da3d)
+
+$ kubectl logs fail-1-crashloop-pod
+[FATAL ERROR]: DATABASE_URL environment variable is MISSING!
+
+$ kubectl delete pod fail-1-crashloop-pod
+pod "fail-1-crashloop-pod" deleted from default namespace
+
+$ kubectl apply -f fixed.yaml
+pod/fail-1-crashloop-pod created
+
+$ kubectl get pod fail-1-crashloop-pod
+NAME                   READY   STATUS    RESTARTS   AGE
+fail-1-crashloop-pod   1/1     Running   0          20s
+
+$ kubectl logs fail-1-crashloop-pod
+Application started successfully!
+

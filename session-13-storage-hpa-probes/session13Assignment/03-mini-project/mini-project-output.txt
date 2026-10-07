@@ -1,0 +1,71 @@
+$ kubectl get pvc,pods,svc,hpa -n production-webapp
+NAME                             STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+persistentvolumeclaim/web-data   Bound    pvc-5673a462-6fda-4ac6-9f66-56f1d93f1eca   500Mi      RWO            standard       <unset>                 19s
+
+NAME                          READY   STATUS    RESTARTS   AGE
+pod/web-app-d45775485-2mzjf   1/1     Running   0          18s
+pod/web-app-d45775485-tzjqc   1/1     Running   0          18s
+
+NAME                  TYPE        CLUSTER-IP    EXTERNAL-IP   PORT(S)   AGE
+service/web-service   ClusterIP   10.102.29.3   <none>        80/TCP    18s
+
+NAME                                              REFERENCE            TARGETS              MINPODS   MAXPODS   REPLICAS   AGE
+horizontalpodautoscaler.autoscaling/web-app-hpa   Deployment/web-app   cpu: <unknown>/50%   2         5         2          18s
+
+--- storage test, pod = web-app-d45775485-2mzjf
+$ kubectl exec -n production-webapp web-app-d45775485-2mzjf -- sh -c 'echo "Student: Aadit Dhariwal" > /data/student.txt'
+$ kubectl exec -n production-webapp web-app-d45775485-2mzjf -- cat /data/student.txt
+Student: Aadit Dhariwal
+$ kubectl delete pod -n production-webapp web-app-d45775485-2mzjf
+pod "web-app-d45775485-2mzjf" deleted from production-webapp namespace
+$ kubectl get pods -n production-webapp
+NAME                      READY   STATUS    RESTARTS   AGE
+web-app-d45775485-khl64   1/1     Running   0          9s
+web-app-d45775485-tzjqc   1/1     Running   0          28s
+$ kubectl exec -n production-webapp web-app-d45775485-khl64 -- cat /data/student.txt   (new pod)
+Student: Aadit Dhariwal
+
+$ kubectl port-forward -n production-webapp svc/web-service 8080:80
+$ curl -s http://localhost:8080 | head -4
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+
+$ kubectl get hpa -n production-webapp   (before load)
+NAME          REFERENCE            TARGETS              MINPODS   MAXPODS   REPLICAS   AGE
+web-app-hpa   Deployment/web-app   cpu: <unknown>/50%   2         5         2          47s
+
+$ kubectl apply -f load-generator.yaml
+deployment.apps/load-generator created
+
+$ kubectl get hpa -n production-webapp -w
+NAME          REFERENCE            TARGETS              MINPODS   MAXPODS   REPLICAS   AGE
+web-app-hpa   Deployment/web-app   cpu: <unknown>/50%   2         5         2          47s
+web-app-hpa   Deployment/web-app   cpu: 45%/50%         2         5         2          105s
+web-app-hpa   Deployment/web-app   cpu: 70%/50%         2         5         2          2m46s
+web-app-hpa   Deployment/web-app   cpu: 70%/50%         2         5         3          3m1s
+web-app-hpa   Deployment/web-app   cpu: 59%/50%         2         5         3          3m46s
+web-app-hpa   Deployment/web-app   cpu: 48%/50%         2         5         3          4m46s
+
+$ kubectl get pods -n production-webapp -l app=web-app   (under load)
+NAME                      READY   STATUS    RESTARTS   AGE
+web-app-d45775485-cf49f   1/1     Running   0          3m15s
+web-app-d45775485-khl64   1/1     Running   0          5m42s
+web-app-d45775485-tzjqc   1/1     Running   0          6m1s
+
+$ kubectl top pods -n production-webapp -l app=web-app
+NAME                      CPU(cores)   MEMORY(bytes)   
+web-app-d45775485-cf49f   48m          23Mi            
+web-app-d45775485-khl64   48m          23Mi            
+web-app-d45775485-tzjqc   49m          23Mi            
+
+$ kubectl describe pod -n production-webapp web-app-d45775485-cf49f | grep -E 'Liveness|Readiness|Startup|Restart Count|/data'
+    Restart Count:  0
+    Liveness:     http-get http://:80/ delay=5s timeout=2s period=5s #success=1 #failure=3
+    Readiness:    http-get http://:80/ delay=5s timeout=2s period=5s #success=1 #failure=2
+    Startup:      http-get http://:80/ delay=0s timeout=1s period=2s #success=1 #failure=30
+      /data from persistent-storage (rw)
+
+$ kubectl delete -f load-generator.yaml
+deployment.apps "load-generator" deleted from production-webapp namespace

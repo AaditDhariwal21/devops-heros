@@ -1,0 +1,273 @@
+$ helm create mychart
+Creating mychart
+
+$ find mychart -type f
+mychart/.helmignore
+mychart/Chart.yaml
+mychart/templates/NOTES.txt
+mychart/templates/_helpers.tpl
+mychart/templates/deployment.yaml
+mychart/templates/hpa.yaml
+mychart/templates/httproute.yaml
+mychart/templates/ingress.yaml
+mychart/templates/service.yaml
+mychart/templates/serviceaccount.yaml
+mychart/templates/tests/test-connection.yaml
+mychart/values.yaml
+
+$ helm lint mychart
+==> Linting mychart
+[INFO] Chart.yaml: icon is recommended
+
+1 chart(s) linted, 0 chart(s) failed
+
+$ helm install myrelease ./mychart
+NAME: myrelease
+LAST DEPLOYED: Wed Oct  7 16:46:07 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+NOTES:
+1. Get the application URL by running these commands:
+  export POD_NAME=$(kubectl get pods --namespace default -l "app.kubernetes.io/name=mychart,app.kubernetes.io/instance=myrelease" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace default $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit http://127.0.0.1:8080 to use your application"
+  kubectl --namespace default port-forward $POD_NAME 8080:$CONTAINER_PORT
+
+$ helm list
+NAME     	NAMESPACE	REVISION	UPDATED                              	STATUS  	CHART        	APP VERSION
+myrelease	default  	1       	2026-10-07 16:46:07.1797282 +0530 IST	deployed	mychart-0.1.0	1.16.0     
+
+$ helm status myrelease
+NAME: myrelease
+LAST DEPLOYED: Wed Oct  7 16:46:07 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+RESOURCES:
+==> v1/ServiceAccount
+NAME                AGE
+myrelease-mychart   11s
+
+==> v1/Service
+NAME                TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE
+myrelease-mychart   ClusterIP   10.110.154.85   <none>        80/TCP    11s
+
+==> v1/Deployment
+NAME                READY   UP-TO-DATE   AVAILABLE   AGE
+myrelease-mychart   1/1     1            1           11s
+
+==> v1/Pod(related)
+NAME                                 READY   STATUS    RESTARTS   AGE
+myrelease-mychart-5fdbfd9b94-k6mtq   1/1     Running   0          11s
+
+
+NOTES:
+1. Get the application URL by running these commands:
+  export POD_NAME=$(kubectl get pods --namespace default -l "app.kubernetes.io/name=mychart,app.kubernetes.io/instance=myrelease" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace default $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit http://127.0.0.1:8080 to use your application"
+  kubectl --namespace default port-forward $POD_NAME 8080:$CONTAINER_PORT
+
+$ kubectl get all -l app.kubernetes.io/instance=myrelease
+NAME                                     READY   STATUS    RESTARTS   AGE
+pod/myrelease-mychart-5fdbfd9b94-k6mtq   1/1     Running   0          11s
+
+NAME                        TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE
+service/myrelease-mychart   ClusterIP   10.110.154.85   <none>        80/TCP    11s
+
+NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/myrelease-mychart   1/1     1            1           11s
+
+NAME                                           DESIRED   CURRENT   READY   AGE
+replicaset.apps/myrelease-mychart-5fdbfd9b94   1         1         1       11s
+
+$ helm get values myrelease
+USER-SUPPLIED VALUES:
+null
+
+$ helm get values myrelease --all
+COMPUTED VALUES:
+affinity: {}
+autoscaling:
+  enabled: false
+  maxReplicas: 100
+  minReplicas: 1
+  targetCPUUtilizationPercentage: 80
+fullnameOverride: ""
+httpRoute:
+  annotations: {}
+  enabled: false
+  hostnames:
+  - chart-example.local
+  parentRefs:
+  - name: gateway
+    sectionName: http
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /headers
+image:
+  pullPolicy: IfNotPresent
+  repository: nginx
+  tag: ""
+imagePullSecrets: []
+ingress:
+  annotations: {}
+  className: ""
+  enabled: false
+  hosts:
+  - host: chart-example.local
+    paths:
+    - path: /
+      pathType: ImplementationSpecific
+  tls: []
+livenessProbe:
+  httpGet:
+    path: /
+    port: http
+nameOverride: ""
+nodeSelector: {}
+podAnnotations: {}
+podLabels: {}
+podSecurityContext: {}
+readinessProbe:
+  httpGet:
+    path: /
+    port: http
+replicaCount: 1
+resources: {}
+securityContext: {}
+service:
+  port: 80
+  type: ClusterIP
+serviceAccount:
+  annotations: {}
+  automount: true
+  create: true
+  name: ""
+tolerations: []
+volumeMounts: []
+volumes: []
+
+$ helm get manifest myrelease | head -30
+---
+# Source: mychart/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: myrelease-mychart
+  labels:
+    helm.sh/chart: mychart-0.1.0
+    app.kubernetes.io/name: mychart
+    app.kubernetes.io/instance: myrelease
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+automountServiceAccountToken: true
+
+---
+# Source: mychart/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: myrelease-mychart
+  labels:
+    helm.sh/chart: mychart-0.1.0
+    app.kubernetes.io/name: mychart
+    app.kubernetes.io/instance: myrelease
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+
+$ helm upgrade myrelease ./mychart --set replicaCount=2
+Release "myrelease" has been upgraded. Happy Helming!
+NAME: myrelease
+LAST DEPLOYED: Wed Oct  7 16:46:19 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 2
+DESCRIPTION: Upgrade complete
+NOTES:
+1. Get the application URL by running these commands:
+  export POD_NAME=$(kubectl get pods --namespace default -l "app.kubernetes.io/name=mychart,app.kubernetes.io/instance=myrelease" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace default $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit http://127.0.0.1:8080 to use your application"
+  kubectl --namespace default port-forward $POD_NAME 8080:$CONTAINER_PORT
+
+$ helm get values myrelease
+USER-SUPPLIED VALUES:
+replicaCount: 2
+
+$ kubectl get pods -l app.kubernetes.io/instance=myrelease
+NAME                                 READY   STATUS    RESTARTS   AGE
+myrelease-mychart-5fdbfd9b94-k6mtq   1/1     Running   0          13s
+myrelease-mychart-5fdbfd9b94-rz9qp   1/1     Running   0          1s
+
+$ helm history myrelease
+REVISION	UPDATED                 	STATUS    	CHART        	APP VERSION	DESCRIPTION     
+1       	Wed Oct  7 16:46:07 2026	superseded	mychart-0.1.0	1.16.0     	Install complete
+2       	Wed Oct  7 16:46:19 2026	deployed  	mychart-0.1.0	1.16.0     	Upgrade complete
+
+$ helm rollback myrelease 1
+Rollback was a success! Happy Helming!
+
+$ helm history myrelease
+REVISION	UPDATED                 	STATUS    	CHART        	APP VERSION	DESCRIPTION     
+1       	Wed Oct  7 16:46:07 2026	superseded	mychart-0.1.0	1.16.0     	Install complete
+2       	Wed Oct  7 16:46:19 2026	superseded	mychart-0.1.0	1.16.0     	Upgrade complete
+3       	Wed Oct  7 16:46:20 2026	deployed  	mychart-0.1.0	1.16.0     	Rollback to 1   
+
+$ kubectl get pods -l app.kubernetes.io/instance=myrelease
+NAME                                 READY   STATUS    RESTARTS   AGE
+myrelease-mychart-5fdbfd9b94-k6mtq   1/1     Running   0          18s
+
+$ helm uninstall myrelease
+release "myrelease" uninstalled
+
+$ helm list
+NAME	NAMESPACE	REVISION	UPDATED	STATUS	CHART	APP VERSION
+
+$ helm repo add bitnami https://charts.bitnami.com/bitnami
+"bitnami" has been added to your repositories
+
+$ helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+"prometheus-community" has been added to your repositories
+
+$ helm repo list
+NAME                	URL                                               
+bitnami             	https://charts.bitnami.com/bitnami                
+prometheus-community	https://prometheus-community.github.io/helm-charts
+
+$ helm repo update
+Hang tight while we grab the latest from your chart repositories...
+...Successfully got an update from the "bitnami" chart repository
+...Successfully got an update from the "prometheus-community" chart repository
+Update Complete. ⎈Happy Helming!⎈
+
+$ helm search repo nginx | head -6
+NAME                                          	CHART VERSION	APP VERSION	DESCRIPTION                                       
+bitnami/nginx                                 	25.2.1       	1.31.6     	NGINX Open Source is a web server that can be a...
+bitnami/nginx-ingress-controller              	12.0.7       	1.13.1     	NGINX Ingress Controller is an Ingress controll...
+bitnami/nginx-intel                           	2.1.15       	0.4.9      	DEPRECATED NGINX Open Source for Intel is a lig...
+prometheus-community/prometheus-nginx-exporter	1.23.1       	1.5.3      	A Helm chart for NGINX Prometheus Exporter        
+
+$ helm search repo prometheus-community/prometheus --versions | head -4
+NAME                                              	CHART VERSION	APP VERSION	DESCRIPTION                                       
+prometheus-community/prometheus                   	29.35.0      	v3.15.0    	Prometheus is a monitoring system and time seri...
+prometheus-community/prometheus                   	29.34.0      	v3.15.0    	Prometheus is a monitoring system and time seri...
+prometheus-community/prometheus                   	29.33.1      	v3.15.0    	Prometheus is a monitoring system and time seri...
+
+$ helm search hub wordpress | head -6
+URL                                               	CHART VERSION	APP VERSION        	DESCRIPTION                                       
+https://artifacthub.io/packages/helm/slybase-wo...	5.5.40       	7.0.1              	Using the official WordPress image. This chart ...
+https://artifacthub.io/packages/helm/wordpress-...	1.0.11       	7.1.3              	WordPress is the world's most popular blogging ...
+https://artifacthub.io/packages/helm/quench-wor...	0.0.25       	7.1.3              	Hardened WordPress CMS (PHP-FPM + nginx) on a 0...
+https://artifacthub.io/packages/helm/wordpress-...	1.0.2        	1.0.0              	A Helm chart for deploying Wordpress+Mariadb st...
+https://artifacthub.io/packages/helm/kube-wordp...	0.1.0        	1.1                	this is my wordpress package                      
+

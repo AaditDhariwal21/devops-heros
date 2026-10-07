@@ -1,0 +1,38 @@
+$ kubectl apply -f deployment.yaml -f broken.yaml
+deployment.apps/web unchanged
+service/web-service created
+
+$ kubectl get svc web-service
+NAME          TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+web-service   ClusterIP   10.97.134.98   <none>        80/TCP    3s
+
+$ kubectl exec client -- wget -q -T 3 -O- http://web-service
+wget: can't connect to remote host (10.97.134.98): Connection refused
+command terminated with exit code 1
+
+$ kubectl get endpoints web-service
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+NAME          ENDPOINTS   AGE
+web-service   <none>      5s
+
+$ kubectl describe svc web-service   (trimmed)
+Selector:                 app=web-ahsgdf
+TargetPort:               80/TCP
+Endpoints:                
+
+$ kubectl get pods -l app=web --show-labels
+NAME                   READY   STATUS    RESTARTS   AGE     LABELS
+web-557577df75-2g5x6   1/1     Running   0          6m47s   app=web,pod-template-hash=557577df75
+web-557577df75-9fh6x   1/1     Running   0          6m47s   app=web,pod-template-hash=557577df75
+
+$ kubectl apply -f fixed.yaml
+service/web-service configured
+
+$ kubectl get endpoints web-service
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+NAME          ENDPOINTS                       AGE
+web-service   10.244.0.59:80,10.244.0.60:80   8s
+
+$ kubectl exec client -- wget -q -T 3 -O- http://web-service | grep title
+<title>Welcome to nginx!</title>
+

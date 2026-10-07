@@ -1,0 +1,419 @@
+$ kubectl apply -f 01-commands/logs-pod.yaml -f 02-issues/5-service/deployment.yaml
+pod/logs-demo unchanged
+deployment.apps/web unchanged
+
+$ kubectl get pods
+NAME                        READY   STATUS    RESTARTS   AGE
+hpa-demo-5d6676989b-tf8tm   1/1     Running   0          40m
+logs-demo                   1/1     Running   0          8s
+web-557577df75-2g5x6        1/1     Running   0          8s
+web-557577df75-9fh6x        1/1     Running   0          8s
+
+$ kubectl get pods -o wide
+NAME                        READY   STATUS    RESTARTS   AGE   IP            NODE       NOMINATED NODE   READINESS GATES
+hpa-demo-5d6676989b-tf8tm   1/1     Running   0          40m   10.244.0.11   minikube   <none>           <none>
+logs-demo                   1/1     Running   0          8s    10.244.0.58   minikube   <none>           <none>
+web-557577df75-2g5x6        1/1     Running   0          8s    10.244.0.60   minikube   <none>           <none>
+web-557577df75-9fh6x        1/1     Running   0          8s    10.244.0.59   minikube   <none>           <none>
+
+$ kubectl get deploy,rs,pods -l app=web
+NAME                             DESIRED   CURRENT   READY   AGE
+replicaset.apps/web-557577df75   2         2         2       8s
+
+NAME                       READY   STATUS    RESTARTS   AGE
+pod/web-557577df75-2g5x6   1/1     Running   0          8s
+pod/web-557577df75-9fh6x   1/1     Running   0          8s
+
+$ kubectl describe pod logs-demo
+Name:             logs-demo
+Namespace:        default
+Priority:         0
+Service Account:  default
+Node:             minikube/192.168.49.2
+Start Time:       Wed, 07 Oct 2026 16:36:02 +0530
+Labels:           <none>
+Annotations:      <none>
+Status:           Running
+IP:               10.244.0.58
+IPs:
+  IP:  10.244.0.58
+Containers:
+  app:
+    Container ID:  containerd://105ec6774e7d1584a072896acee2b7feb7960ebdac69536dcaebec04b106a280
+    Image:         busybox:1.36
+    Image ID:      docker.io/library/busybox@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      sh
+      -c
+      echo "Application started"
+      echo "Connecting to database..."
+      echo "Database connection successful"
+      echo "Application is running"
+      while true; do
+        echo "Application is healthy"
+        sleep 5
+      done
+      
+    State:          Running
+      Started:      Wed, 07 Oct 2026 16:36:03 +0530
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-mq97l (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  kube-api-access-mq97l:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  9s    default-scheduler  Successfully assigned default/logs-demo to minikube
+  Normal  Pulled     8s    kubelet            Container image "busybox:1.36" already present on machine and can be accessed by the pod
+  Normal  Created    8s    kubelet            Container created
+  Normal  Started    8s    kubelet            Container started
+
+$ kubectl logs logs-demo --tail=6
+Application started
+Connecting to database...
+Database connection successful
+Application is running
+Application is healthy
+Application is healthy
+
+$ kubectl logs deploy/web --tail=3
+Found 2 pods, using pod/web-557577df75-2g5x6
+2026/10/07 11:06:03 [notice] 1#1: start worker process 54
+2026/10/07 11:06:03 [notice] 1#1: start worker process 55
+2026/10/07 11:06:03 [notice] 1#1: start worker process 56
+
+$ kubectl exec logs-demo -- env
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+HOSTNAME=logs-demo
+KUBERNETES_PORT=tcp://10.96.0.1:443
+KUBERNETES_PORT_443_TCP_ADDR=10.96.0.1
+HPA_DEMO_SERVICE_PORT_80_TCP=tcp://10.100.119.37:80
+HPA_DEMO_SERVICE_PORT_80_TCP_ADDR=10.100.119.37
+KUBERNETES_PORT_443_TCP_PORT=443
+HPA_DEMO_SERVICE_SERVICE_HOST=10.100.119.37
+KUBERNETES_SERVICE_HOST=10.96.0.1
+KUBERNETES_SERVICE_PORT=443
+HPA_DEMO_SERVICE_PORT=tcp://10.100.119.37:80
+HPA_DEMO_SERVICE_PORT_80_TCP_PROTO=tcp
+HPA_DEMO_SERVICE_PORT_80_TCP_PORT=80
+KUBERNETES_SERVICE_PORT_HTTPS=443
+KUBERNETES_PORT_443_TCP=tcp://10.96.0.1:443
+KUBERNETES_PORT_443_TCP_PROTO=tcp
+HPA_DEMO_SERVICE_SERVICE_PORT=80
+HOME=/root
+
+$ kubectl exec logs-demo -- cat /etc/resolv.conf
+search default.svc.cluster.local svc.cluster.local cluster.local
+nameserver 10.96.0.10
+options ndots:5
+
+$ kubectl exec web-557577df75-2g5x6 -- curl -s -o /dev/null -w %{http_code}\n localhost
+200
+
+$ kubectl events --for pod/logs-demo
+LAST SEEN   TYPE     REASON      OBJECT          MESSAGE
+9s          Normal   Scheduled   Pod/logs-demo   Successfully assigned default/logs-demo to minikube
+8s          Normal   Pulled      Pod/logs-demo   Container image "busybox:1.36" already present on machine and can be accessed by the pod
+8s          Normal   Created     Pod/logs-demo   Container created
+8s          Normal   Started     Pod/logs-demo   Container started
+
+$ kubectl get events --sort-by=.lastTimestamp
+LAST SEEN   TYPE      REASON                         OBJECT                                 MESSAGE
+42m         Normal    Starting                       node/minikube                          
+42m         Normal    NodeAllocatableEnforced        node/minikube                          Updated Node Allocatable limit across pods
+42m         Normal    NodeHasSufficientPID           node/minikube                          Node minikube status is now: NodeHasSufficientPID
+42m         Normal    NodeHasNoDiskPressure          node/minikube                          Node minikube status is now: NodeHasNoDiskPressure
+42m         Normal    NodeHasSufficientMemory        node/minikube                          Node minikube status is now: NodeHasSufficientMemory
+42m         Normal    Starting                       node/minikube                          Starting kubelet.
+42m         Warning   Rebooted                       node/minikube                          Node minikube has been rebooted, boot id: b35705ff-a761-48ff-aaf6-eac5b39792c1
+42m         Normal    RegisteredNode                 node/minikube                          Node minikube event: Registered Node minikube in Controller
+42m         Normal    Scheduled                      pod/hostpath-demo                      Successfully assigned default/hostpath-demo to minikube
+42m         Normal    Scheduled                      pod/emptydir-demo                      Successfully assigned default/emptydir-demo to minikube
+42m         Normal    Pulled                         pod/hostpath-demo                      Container image "nginx:1.27" already present on machine and can be accessed by the pod
+42m         Normal    Pulled                         pod/emptydir-demo                      Container image "nginx:1.27" already present on machine and can be accessed by the pod
+42m         Normal    Created                        pod/emptydir-demo                      Container created
+42m         Normal    Started                        pod/emptydir-demo                      Container started
+42m         Normal    Created                        pod/hostpath-demo                      Container created
+42m         Normal    Started                        pod/hostpath-demo                      Container started
+42m         Normal    Killing                        pod/emptydir-demo                      Stopping container app
+42m         Normal    Killing                        pod/hostpath-demo                      Stopping container app
+42m         Normal    Started                        pod/hostpath-demo                      Container started
+42m         Normal    Created                        pod/hostpath-demo                      Container created
+42m         Normal    Started                        pod/emptydir-demo                      Container started
+42m         Normal    Scheduled                      pod/emptydir-demo                      Successfully assigned default/emptydir-demo to minikube
+42m         Normal    Scheduled                      pod/hostpath-demo                      Successfully assigned default/hostpath-demo to minikube
+42m         Normal    Pulled                         pod/emptydir-demo                      Container image "nginx:1.27" already present on machine and can be accessed by the pod
+42m         Normal    Created                        pod/emptydir-demo                      Container created
+42m         Normal    Pulled                         pod/hostpath-demo                      Container image "nginx:1.27" already present on machine and can be accessed by the pod
+42m         Normal    Killing                        pod/emptydir-demo                      Stopping container app
+42m         Normal    Killing                        pod/hostpath-demo                      Stopping container app
+41m         Normal    ExternalProvisioning           persistentvolumeclaim/student-pvc      Waiting for a volume to be created either by the external provisioner 'k8s.io/minikube-hostpath' or manually by the system administrator. If volume creation is delayed, please verify that the provisioner is running and correctly registered.
+41m         Normal    ProvisioningSucceeded          persistentvolumeclaim/student-pvc      Successfully provisioned volume pvc-f334f19f-9d23-46a2-8c89-587e8bd8e918
+41m         Normal    Provisioning                   persistentvolumeclaim/student-pvc      External provisioner is provisioning volume for claim "default/student-pvc"
+41m         Normal    Killing                        pod/storage-demo                       Stopping container app
+41m         Normal    Scheduled                      pod/storage-demo                       Successfully assigned default/storage-demo to minikube
+41m         Normal    Pulled                         pod/storage-demo                       Container image "nginx:1.27" already present on machine and can be accessed by the pod
+41m         Normal    Created                        pod/storage-demo                       Container created
+41m         Normal    Started                        pod/storage-demo                       Container started
+41m         Normal    Scheduled                      pod/storage-demo                       Successfully assigned default/storage-demo to minikube
+41m         Normal    Pulled                         pod/storage-demo                       Container image "nginx:1.27" already present on machine and can be accessed by the pod
+41m         Normal    Created                        pod/storage-demo                       Container created
+41m         Normal    Started                        pod/storage-demo                       Container started
+41m         Normal    ExternalProvisioning           persistentvolumeclaim/dynamic-pvc      Waiting for a volume to be created either by the external provisioner 'k8s.io/minikube-hostpath' or manually by the system administrator. If volume creation is delayed, please verify that the provisioner is running and correctly registered.
+41m         Normal    Provisioning                   persistentvolumeclaim/dynamic-pvc      External provisioner is provisioning volume for claim "default/dynamic-pvc"
+41m         Normal    ProvisioningSucceeded          persistentvolumeclaim/dynamic-pvc      Successfully provisioned volume pvc-7c11b490-d07c-4b82-b186-2113791dfe44
+40m         Normal    Killing                        pod/storage-demo                       Stopping container app
+40m         Normal    SuccessfulCreate               replicaset/hpa-demo-5d6676989b         Created pod: hpa-demo-5d6676989b-tf8tm
+40m         Normal    ScalingReplicaSet              deployment/hpa-demo                    Scaled up replica set hpa-demo-5d6676989b from 0 to 1
+40m         Normal    Scheduled                      pod/hpa-demo-5d6676989b-tf8tm          Successfully assigned default/hpa-demo-5d6676989b-tf8tm to minikube
+40m         Normal    Started                        pod/hpa-demo-5d6676989b-tf8tm          Container started
+40m         Normal    Created                        pod/hpa-demo-5d6676989b-tf8tm          Container created
+40m         Normal    Pulled                         pod/hpa-demo-5d6676989b-tf8tm          Container image "nginx:1.27" already present on machine and can be accessed by the pod
+39m         Warning   FailedComputeMetricsReplicas   horizontalpodautoscaler/hpa-demo       invalid metrics (1 invalid out of 1), first error is: failed to get cpu resource metric value: failed to get cpu utilization: unable to get metrics for resource cpu: unable to fetch metrics from resource metrics API: the server is currently unable to handle the request (get pods.metrics.k8s.io)
+39m         Warning   FailedGetResourceMetric        horizontalpodautoscaler/hpa-demo       failed to get cpu utilization: unable to get metrics for resource cpu: unable to fetch metrics from resource metrics API: the server is currently unable to handle the request (get pods.metrics.k8s.io)
+38m         Normal    Started                        pod/load-generator-5bc8f9cd58-c9dj9    Container started
+38m         Normal    Pulled                         pod/load-generator-5bc8f9cd58-c9dj9    Container image "busybox:1.36" already present on machine and can be accessed by the pod
+38m         Normal    Pulled                         pod/load-generator-5bc8f9cd58-qz7gw    Container image "busybox:1.36" already present on machine and can be accessed by the pod
+38m         Normal    Created                        pod/load-generator-5bc8f9cd58-qz7gw    Container created
+38m         Normal    Started                        pod/load-generator-5bc8f9cd58-qz7gw    Container started
+38m         Normal    SuccessfulCreate               replicaset/load-generator-5bc8f9cd58   Created pod: load-generator-5bc8f9cd58-qz7gw
+38m         Normal    SuccessfulCreate               replicaset/load-generator-5bc8f9cd58   Created pod: load-generator-5bc8f9cd58-c9dj9
+38m         Normal    Scheduled                      pod/load-generator-5bc8f9cd58-qz7gw    Successfully assigned default/load-generator-5bc8f9cd58-qz7gw to minikube
+38m         Normal    Created                        pod/load-generator-5bc8f9cd58-c9dj9    Container created
+38m         Normal    Scheduled                      pod/load-generator-5bc8f9cd58-c9dj9    Successfully assigned default/load-generator-5bc8f9cd58-c9dj9 to minikube
+38m         Normal    SuccessfulCreate               replicaset/load-generator-5bc8f9cd58   Created pod: load-generator-5bc8f9cd58-4xfc5
+38m         Normal    Started                        pod/load-generator-5bc8f9cd58-4xfc5    Container started
+38m         Normal    ScalingReplicaSet              deployment/load-generator              Scaled up replica set load-generator-5bc8f9cd58 from 0 to 3
+38m         Normal    Created                        pod/load-generator-5bc8f9cd58-4xfc5    Container created
+38m         Normal    Scheduled                      pod/load-generator-5bc8f9cd58-4xfc5    Successfully assigned default/load-generator-5bc8f9cd58-4xfc5 to minikube
+38m         Normal    Pulled                         pod/load-generator-5bc8f9cd58-4xfc5    Container image "busybox:1.36" already present on machine and can be accessed by the pod
+37m         Normal    Scheduled                      pod/load-generator-5bc8f9cd58-6qpgg    Successfully assigned default/load-generator-5bc8f9cd58-6qpgg to minikube
+37m         Normal    SuccessfulCreate               replicaset/load-generator-5bc8f9cd58   Created pod: load-generator-5bc8f9cd58-wsnd9
+37m         Normal    Scheduled                      pod/load-generator-5bc8f9cd58-hdwfk    Successfully assigned default/load-generator-5bc8f9cd58-hdwfk to minikube
+37m         Normal    Scheduled                      pod/load-generator-5bc8f9cd58-wsnd9    Successfully assigned default/load-generator-5bc8f9cd58-wsnd9 to minikube
+37m         Normal    SuccessfulCreate               replicaset/load-generator-5bc8f9cd58   Created pod: load-generator-5bc8f9cd58-k54mt
+37m         Normal    SuccessfulCreate               replicaset/load-generator-5bc8f9cd58   Created pod: load-generator-5bc8f9cd58-6qpgg
+37m         Normal    SuccessfulCreate               replicaset/load-generator-5bc8f9cd58   Created pod: load-generator-5bc8f9cd58-jdf4h
+37m         Normal    Scheduled                      pod/load-generator-5bc8f9cd58-k54mt    Successfully assigned default/load-generator-5bc8f9cd58-k54mt to minikube
+37m         Normal    ScalingReplicaSet              deployment/load-generator              Scaled up replica set load-generator-5bc8f9cd58 from 3 to 8
+37m         Normal    Scheduled                      pod/load-generator-5bc8f9cd58-jdf4h    Successfully assigned default/load-generator-5bc8f9cd58-jdf4h to minikube
+37m         Normal    SuccessfulCreate               replicaset/load-generator-5bc8f9cd58   Created pod: load-generator-5bc8f9cd58-hdwfk
+37m         Normal    Created                        pod/load-generator-5bc8f9cd58-6qpgg    Container created
+37m         Normal    Started                        pod/load-generator-5bc8f9cd58-jdf4h    Container started
+37m         Normal    Created                        pod/load-generator-5bc8f9cd58-jdf4h    Container created
+37m         Normal    Pulled                         pod/load-generator-5bc8f9cd58-jdf4h    Container image "busybox:1.36" already present on machine and can be accessed by the pod
+37m         Normal    Pulled                         pod/load-generator-5bc8f9cd58-hdwfk    Container image "busybox:1.36" already present on machine and can be accessed by the pod
+37m         Normal    Pulled                         pod/load-generator-5bc8f9cd58-6qpgg    Container image "busybox:1.36" already present on machine and can be accessed by the pod
+37m         Normal    Pulled                         pod/load-generator-5bc8f9cd58-wsnd9    Container image "busybox:1.36" already present on machine and can be accessed by the pod
+37m         Normal    Pulled                         pod/load-generator-5bc8f9cd58-k54mt    Container image "busybox:1.36" already present on machine and can be accessed by the pod
+37m         Normal    Started                        pod/load-generator-5bc8f9cd58-6qpgg    Container started
+37m         Normal    Started                        pod/load-generator-5bc8f9cd58-wsnd9    Container started
+37m         Normal    Started                        pod/load-generator-5bc8f9cd58-hdwfk    Container started
+37m         Normal    Started                        pod/load-generator-5bc8f9cd58-k54mt    Container started
+37m         Normal    Created                        pod/load-generator-5bc8f9cd58-k54mt    Container created
+37m         Normal    Created                        pod/load-generator-5bc8f9cd58-hdwfk    Container created
+37m         Normal    Created                        pod/load-generator-5bc8f9cd58-wsnd9    Container created
+37m         Normal    Scheduled                      pod/hpa-demo-5d6676989b-6gq89          Successfully assigned default/hpa-demo-5d6676989b-6gq89 to minikube
+37m         Normal    SuccessfulCreate               replicaset/hpa-demo-5d6676989b         Created pod: hpa-demo-5d6676989b-6gq89
+37m         Normal    SuccessfulCreate               replicaset/hpa-demo-5d6676989b         Created pod: hpa-demo-5d6676989b-kshvt
+37m         Normal    Scheduled                      pod/hpa-demo-5d6676989b-kshvt          Successfully assigned default/hpa-demo-5d6676989b-kshvt to minikube
+37m         Normal    Pulled                         pod/hpa-demo-5d6676989b-6gq89          Container image "nginx:1.27" already present on machine and can be accessed by the pod
+37m         Normal    Pulled                         pod/hpa-demo-5d6676989b-kshvt          Container image "nginx:1.27" already present on machine and can be accessed by the pod
+37m         Normal    Started                        pod/hpa-demo-5d6676989b-kshvt          Container started
+37m         Normal    Created                        pod/hpa-demo-5d6676989b-6gq89          Container created
+37m         Normal    Created                        pod/hpa-demo-5d6676989b-kshvt          Container created
+37m         Normal    Started                        pod/hpa-demo-5d6676989b-6gq89          Container started
+30m         Normal    Killing                        pod/load-generator-5bc8f9cd58-qz7gw    Stopping container busybox
+30m         Normal    Killing                        pod/load-generator-5bc8f9cd58-jdf4h    Stopping container busybox
+30m         Normal    Killing                        pod/load-generator-5bc8f9cd58-6qpgg    Stopping container busybox
+30m         Normal    Killing                        pod/load-generator-5bc8f9cd58-4xfc5    Stopping container busybox
+30m         Normal    Killing                        pod/load-generator-5bc8f9cd58-wsnd9    Stopping container busybox
+30m         Normal    Killing                        pod/load-generator-5bc8f9cd58-hdwfk    Stopping container busybox
+30m         Normal    Killing                        pod/load-generator-5bc8f9cd58-k54mt    Stopping container busybox
+30m         Normal    Killing                        pod/load-generator-5bc8f9cd58-c9dj9    Stopping container busybox
+24m         Normal    SuccessfulDelete               replicaset/hpa-demo-5d6676989b         Deleted pod: hpa-demo-5d6676989b-kshvt
+24m         Normal    SuccessfulDelete               replicaset/hpa-demo-5d6676989b         Deleted pod: hpa-demo-5d6676989b-6gq89
+24m         Normal    Killing                        pod/hpa-demo-5d6676989b-6gq89          Stopping container nginx
+24m         Normal    Killing                        pod/hpa-demo-5d6676989b-kshvt          Stopping container nginx
+24m         Normal    ScalingReplicaSet              deployment/hpa-demo                    Scaled down replica set hpa-demo-5d6676989b from 3 to 1
+18m         Normal    Pulled                         pod/load-generator-5bc8f9cd58-r9p5v    Container image "busybox:1.36" already present on machine and can be accessed by the pod
+18m         Normal    SuccessfulCreate               replicaset/load-generator-5bc8f9cd58   Created pod: load-generator-5bc8f9cd58-q6znr
+18m         Normal    Scheduled                      pod/load-generator-5bc8f9cd58-q6znr    Successfully assigned default/load-generator-5bc8f9cd58-q6znr to minikube
+18m         Normal    ScalingReplicaSet              deployment/load-generator              Scaled up replica set load-generator-5bc8f9cd58 from 0 to 8
+18m         Normal    Pulled                         pod/load-generator-5bc8f9cd58-msxpd    Container image "busybox:1.36" already present on machine and can be accessed by the pod
+18m         Normal    Scheduled                      pod/load-generator-5bc8f9cd58-msxpd    Successfully assigned default/load-generator-5bc8f9cd58-msxpd to minikube
+18m         Normal    SuccessfulCreate               replicaset/load-generator-5bc8f9cd58   Created pod: load-generator-5bc8f9cd58-6lr8r
+18m         Normal    SuccessfulCreate               replicaset/load-generator-5bc8f9cd58   Created pod: load-generator-5bc8f9cd58-r9p5v
+18m         Normal    SuccessfulCreate               replicaset/load-generator-5bc8f9cd58   Created pod: load-generator-5bc8f9cd58-msxpd
+18m         Normal    Scheduled                      pod/load-generator-5bc8f9cd58-r9p5v    Successfully assigned default/load-generator-5bc8f9cd58-r9p5v to minikube
+18m         Normal    Scheduled                      pod/load-generator-5bc8f9cd58-zwrzm    Successfully assigned default/load-generator-5bc8f9cd58-zwrzm to minikube
+18m         Normal    Pulled                         pod/load-generator-5bc8f9cd58-q6znr    Container image "busybox:1.36" already present on machine and can be accessed by the pod
+18m         Normal    SuccessfulCreate               replicaset/load-generator-5bc8f9cd58   Created pod: load-generator-5bc8f9cd58-vff9k
+18m         Normal    SuccessfulCreate               replicaset/load-generator-5bc8f9cd58   Created pod: load-generator-5bc8f9cd58-hgblm
+18m         Normal    Scheduled                      pod/load-generator-5bc8f9cd58-vff9k    Successfully assigned default/load-generator-5bc8f9cd58-vff9k to minikube
+18m         Normal    Pulled                         pod/load-generator-5bc8f9cd58-vff9k    Container image "busybox:1.36" already present on machine and can be accessed by the pod
+18m         Normal    SuccessfulCreate               replicaset/load-generator-5bc8f9cd58   Created pod: load-generator-5bc8f9cd58-zwrzm
+18m         Normal    SuccessfulCreate               replicaset/load-generator-5bc8f9cd58   Created pod: load-generator-5bc8f9cd58-j98v4
+18m         Normal    Scheduled                      pod/load-generator-5bc8f9cd58-6lr8r    Successfully assigned default/load-generator-5bc8f9cd58-6lr8r to minikube
+18m         Normal    Pulled                         pod/load-generator-5bc8f9cd58-j98v4    Container image "busybox:1.36" already present on machine and can be accessed by the pod
+18m         Normal    Scheduled                      pod/load-generator-5bc8f9cd58-j98v4    Successfully assigned default/load-generator-5bc8f9cd58-j98v4 to minikube
+18m         Normal    Scheduled                      pod/load-generator-5bc8f9cd58-hgblm    Successfully assigned default/load-generator-5bc8f9cd58-hgblm to minikube
+18m         Normal    Pulled                         pod/load-generator-5bc8f9cd58-hgblm    Container image "busybox:1.36" already present on machine and can be accessed by the pod
+18m         Normal    Pulled                         pod/load-generator-5bc8f9cd58-zwrzm    Container image "busybox:1.36" already present on machine and can be accessed by the pod
+18m         Normal    Started                        pod/load-generator-5bc8f9cd58-vff9k    Container started
+18m         Normal    Created                        pod/load-generator-5bc8f9cd58-r9p5v    Container created
+18m         Normal    Created                        pod/load-generator-5bc8f9cd58-zwrzm    Container created
+18m         Normal    Started                        pod/load-generator-5bc8f9cd58-zwrzm    Container started
+18m         Normal    Started                        pod/load-generator-5bc8f9cd58-msxpd    Container started
+18m         Normal    Started                        pod/load-generator-5bc8f9cd58-hgblm    Container started
+18m         Normal    Created                        pod/load-generator-5bc8f9cd58-q6znr    Container created
+18m         Normal    Created                        pod/load-generator-5bc8f9cd58-hgblm    Container created
+18m         Normal    Started                        pod/load-generator-5bc8f9cd58-6lr8r    Container started
+18m         Normal    Created                        pod/load-generator-5bc8f9cd58-6lr8r    Container created
+18m         Normal    Pulled                         pod/load-generator-5bc8f9cd58-6lr8r    Container image "busybox:1.36" already present on machine and can be accessed by the pod
+18m         Normal    Started                        pod/load-generator-5bc8f9cd58-q6znr    Container started
+18m         Normal    Started                        pod/load-generator-5bc8f9cd58-j98v4    Container started
+18m         Normal    Created                        pod/load-generator-5bc8f9cd58-msxpd    Container created
+18m         Normal    Created                        pod/load-generator-5bc8f9cd58-vff9k    Container created
+18m         Normal    Created                        pod/load-generator-5bc8f9cd58-j98v4    Container created
+18m         Normal    Started                        pod/load-generator-5bc8f9cd58-r9p5v    Container started
+17m         Normal    ScalingReplicaSet              deployment/hpa-demo                    Scaled up replica set hpa-demo-5d6676989b from 1 to 3
+17m         Normal    SuccessfulRescale              horizontalpodautoscaler/hpa-demo       New size: 3; reason: cpu resource utilization (percentage of request) above target
+17m         Normal    Scheduled                      pod/hpa-demo-5d6676989b-rmgcj          Successfully assigned default/hpa-demo-5d6676989b-rmgcj to minikube
+17m         Normal    Scheduled                      pod/hpa-demo-5d6676989b-w6x28          Successfully assigned default/hpa-demo-5d6676989b-w6x28 to minikube
+17m         Normal    SuccessfulCreate               replicaset/hpa-demo-5d6676989b         Created pod: hpa-demo-5d6676989b-rmgcj
+17m         Normal    SuccessfulCreate               replicaset/hpa-demo-5d6676989b         Created pod: hpa-demo-5d6676989b-w6x28
+17m         Normal    Pulled                         pod/hpa-demo-5d6676989b-rmgcj          Container image "nginx:1.27" already present on machine and can be accessed by the pod
+17m         Normal    Created                        pod/hpa-demo-5d6676989b-rmgcj          Container created
+17m         Normal    Pulled                         pod/hpa-demo-5d6676989b-w6x28          Container image "nginx:1.27" already present on machine and can be accessed by the pod
+17m         Normal    Created                        pod/hpa-demo-5d6676989b-w6x28          Container created
+17m         Normal    Started                        pod/hpa-demo-5d6676989b-rmgcj          Container started
+17m         Normal    Started                        pod/hpa-demo-5d6676989b-w6x28          Container started
+11m         Normal    Killing                        pod/load-generator-5bc8f9cd58-vff9k    Stopping container busybox
+11m         Normal    Killing                        pod/load-generator-5bc8f9cd58-q6znr    Stopping container busybox
+11m         Normal    Killing                        pod/load-generator-5bc8f9cd58-zwrzm    Stopping container busybox
+11m         Normal    Killing                        pod/load-generator-5bc8f9cd58-msxpd    Stopping container busybox
+11m         Normal    Killing                        pod/load-generator-5bc8f9cd58-r9p5v    Stopping container busybox
+11m         Normal    Killing                        pod/load-generator-5bc8f9cd58-j98v4    Stopping container busybox
+11m         Normal    Killing                        pod/load-generator-5bc8f9cd58-hgblm    Stopping container busybox
+11m         Normal    Killing                        pod/load-generator-5bc8f9cd58-6lr8r    Stopping container busybox
+5m25s       Normal    SuccessfulDelete               replicaset/hpa-demo-5d6676989b         Deleted pod: hpa-demo-5d6676989b-rmgcj
+5m25s       Normal    ScalingReplicaSet              deployment/hpa-demo                    Scaled down replica set hpa-demo-5d6676989b from 3 to 2
+5m25s       Normal    SuccessfulRescale              horizontalpodautoscaler/hpa-demo       New size: 2; reason: All metrics below target
+5m25s       Normal    Killing                        pod/hpa-demo-5d6676989b-rmgcj          Stopping container nginx
+4m25s       Normal    Killing                        pod/hpa-demo-5d6676989b-w6x28          Stopping container nginx
+4m25s       Normal    ScalingReplicaSet              deployment/hpa-demo                    Scaled down replica set hpa-demo-5d6676989b from 2 to 1
+4m25s       Normal    SuccessfulDelete               replicaset/hpa-demo-5d6676989b         Deleted pod: hpa-demo-5d6676989b-w6x28
+4m25s       Normal    SuccessfulRescale              horizontalpodautoscaler/hpa-demo       New size: 1; reason: All metrics below target
+9s          Normal    Scheduled                      pod/web-557577df75-9fh6x               Successfully assigned default/web-557577df75-9fh6x to minikube
+9s          Normal    ScalingReplicaSet              deployment/web                         Scaled up replica set web-557577df75 from 0 to 2
+9s          Normal    SuccessfulCreate               replicaset/web-557577df75              Created pod: web-557577df75-2g5x6
+9s          Normal    SuccessfulCreate               replicaset/web-557577df75              Created pod: web-557577df75-9fh6x
+9s          Normal    Scheduled                      pod/web-557577df75-2g5x6               Successfully assigned default/web-557577df75-2g5x6 to minikube
+9s          Normal    Scheduled                      pod/logs-demo                          Successfully assigned default/logs-demo to minikube
+8s          Normal    Pulled                         pod/web-557577df75-2g5x6               Container image "nginx:1.27" already present on machine and can be accessed by the pod
+8s          Normal    Started                        pod/web-557577df75-2g5x6               Container started
+8s          Normal    Created                        pod/web-557577df75-2g5x6               Container created
+8s          Normal    Pulled                         pod/web-557577df75-9fh6x               Container image "nginx:1.27" already present on machine and can be accessed by the pod
+8s          Normal    Created                        pod/web-557577df75-9fh6x               Container created
+8s          Normal    Started                        pod/web-557577df75-9fh6x               Container started
+8s          Normal    Started                        pod/logs-demo                          Container started
+8s          Normal    Created                        pod/logs-demo                          Container created
+8s          Normal    Pulled                         pod/logs-demo                          Container image "busybox:1.36" already present on machine and can be accessed by the pod
+
+$ kubectl explain pod.spec.containers.livenessProbe
+KIND:       Pod
+VERSION:    v1
+
+FIELD: livenessProbe <Probe>
+
+
+DESCRIPTION:
+    Periodic probe of container liveness. Container will be restarted if the
+    probe fails. Cannot be updated. More info:
+    https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+    Probe describes a health check to be performed against a container to
+    determine whether it is alive or ready to receive traffic.
+    
+FIELDS:
+  exec	<ExecAction>
+    Exec specifies a command to execute in the container.
+
+  failureThreshold	<integer>
+    Minimum consecutive failures for the probe to be considered failed after
+    having succeeded. Defaults to 3. Minimum value is 1.
+
+  grpc	<GRPCAction>
+    GRPC specifies a GRPC HealthCheckRequest.
+
+  httpGet	<HTTPGetAction>
+    HTTPGet specifies an HTTP GET request to perform.
+
+  initialDelaySeconds	<integer>
+    Number of seconds after the container has started before liveness probes are
+    initiated. More info:
+    https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+
+  periodSeconds	<integer>
+    How often (in seconds) to perform the probe. Default to 10 seconds. Minimum
+    value is 1.
+
+  successThreshold	<integer>
+    Minimum consecutive successes for the probe to be considered successful
+    after having failed. Defaults to 1. Must be 1 for liveness and startup.
+    Minimum value is 1.
+
+  tcpSocket	<TCPSocketAction>
+    TCPSocket specifies a connection to a TCP port.
+
+  terminationGracePeriodSeconds	<integer>
+    Optional duration in seconds the pod needs to terminate gracefully upon
+    probe failure. The grace period is the duration in seconds after the
+    processes running in the pod are sent a termination signal and the time when
+    the processes are forcibly halted with a kill signal. Set this value longer
+    than the expected cleanup time for your process. If this value is nil, the
+    pod's terminationGracePeriodSeconds will be used. Otherwise, this value
+    overrides the value provided by the pod spec. Value must be non-negative
+    integer. The value zero indicates stop immediately via the kill signal (no
+    opportunity to shut down). This is a beta field and requires enabling
+    ProbeTerminationGracePeriod feature gate. Minimum value is 1.
+    spec.terminationGracePeriodSeconds is used if unset.
+
+  timeoutSeconds	<integer>
+    Number of seconds after which the probe times out. Defaults to 1 second.
+    Minimum value is 1. More info:
+    https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+
+
+
+$ kubectl top nodes
+NAME       CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   
+minikube   109m         0%       1407Mi          18%         
+
+$ kubectl top pods
+NAME                        CPU(cores)   MEMORY(bytes)   
+hpa-demo-5d6676989b-tf8tm   0m           21Mi            
+logs-demo                   1m           0Mi             
+web-557577df75-2g5x6        2m           21Mi            
+web-557577df75-9fh6x        2m           21Mi            

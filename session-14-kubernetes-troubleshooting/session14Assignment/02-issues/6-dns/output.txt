@@ -1,0 +1,60 @@
+$ kubectl apply -f broken.yaml
+namespace/other created
+pod/dns-client created
+
+$ kubectl get pod dns-client -n other
+NAME         READY   STATUS    RESTARTS   AGE
+dns-client   1/1     Running   0          13s
+
+$ kubectl logs dns-client -n other --tail=3
+wget: bad address 'web-service'
+FAILED
+
+$ kubectl exec -n other dns-client -- nslookup web-service
+Server:		10.96.0.10
+Address:	10.96.0.10:53
+
+** server can't find web-service.cluster.local: NXDOMAIN
+
+** server can't find web-service.svc.cluster.local: NXDOMAIN
+
+** server can't find web-service.other.svc.cluster.local: NXDOMAIN
+
+** server can't find web-service.cluster.local: NXDOMAIN
+
+** server can't find web-service.other.svc.cluster.local: NXDOMAIN
+
+** server can't find web-service.svc.cluster.local: NXDOMAIN
+
+command terminated with exit code 1
+
+$ kubectl exec -n other dns-client -- cat /etc/resolv.conf
+search other.svc.cluster.local svc.cluster.local cluster.local
+nameserver 10.96.0.10
+options ndots:5
+
+$ kubectl get svc -A --field-selector metadata.name=web-service
+NAMESPACE           NAME          TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+default             web-service   ClusterIP   10.97.134.98   <none>        80/TCP    21s
+production-webapp   web-service   ClusterIP   10.102.29.3    <none>        80/TCP    37m
+
+$ kubectl exec -n other dns-client -- nslookup web-service.default.svc.cluster.local
+Server:		10.96.0.10
+Address:	10.96.0.10:53
+
+
+Name:	web-service.default.svc.cluster.local
+Address: 10.97.134.98
+
+
+$ kubectl delete pod dns-client -n other
+pod "dns-client" deleted from other namespace
+
+$ kubectl apply -f fixed.yaml
+pod/dns-client created
+
+$ kubectl logs dns-client -n other --tail=3
+OK
+OK
+OK
+

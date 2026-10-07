@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-settings
+data:
+  mode: "demo"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mount-demo
+spec:
+  containers:
+    - name: nginx
+      image: nginx:1.27
+      volumeMounts:
+        - name: settings
+          mountPath: /etc/settings
+  volumes:
+    - name: settings
+      configMap:
+        name: app-settings

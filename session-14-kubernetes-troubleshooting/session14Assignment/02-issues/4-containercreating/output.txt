@@ -1,0 +1,27 @@
+$ kubectl apply -f broken.yaml
+pod/mount-demo created
+
+$ kubectl get pod mount-demo
+NAME         READY   STATUS              RESTARTS   AGE
+mount-demo   0/1     ContainerCreating   0          30s
+
+$ kubectl describe pod mount-demo   (Events)
+Events:
+  Type     Reason       Age                From               Message
+  ----     ------       ----               ----               -------
+  Normal   Scheduled    30s                default-scheduler  Successfully assigned default/mount-demo to minikube
+  Warning  FailedMount  14s (x6 over 30s)  kubelet            MountVolume.SetUp failed for volume "settings" : configmap "app-settings" not found
+
+$ kubectl get configmap app-settings
+Error from server (NotFound): configmaps "app-settings" not found
+
+$ kubectl apply -f fixed.yaml
+configmap/app-settings created
+pod/mount-demo configured
+
+$ kubectl get pod mount-demo
+NAME         READY   STATUS    RESTARTS   AGE
+mount-demo   1/1     Running   0          32s
+
+$ kubectl exec mount-demo -- cat /etc/settings/mode
+demo

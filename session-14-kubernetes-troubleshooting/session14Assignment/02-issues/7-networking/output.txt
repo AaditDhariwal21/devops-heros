@@ -1,0 +1,35 @@
+$ kubectl apply -f broken.yaml
+service/web-port-svc created
+
+$ kubectl exec client -- wget -q -T 3 -O- http://web-port-svc
+wget: can't connect to remote host (10.96.121.181): Connection refused
+command terminated with exit code 1
+
+$ kubectl get endpoints web-port-svc
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+NAME           ENDPOINTS                           AGE
+web-port-svc   10.244.0.59:8080,10.244.0.60:8080   3s
+
+$ kubectl get pods -l app=web -o wide
+NAME                   READY   STATUS    RESTARTS   AGE     IP            NODE       NOMINATED NODE   READINESS GATES
+web-557577df75-2g5x6   1/1     Running   0          7m50s   10.244.0.60   minikube   <none>           <none>
+web-557577df75-9fh6x   1/1     Running   0          7m50s   10.244.0.59   minikube   <none>           <none>
+
+$ kubectl exec client -- wget -q -T 3 -O- http://10.244.0.60:8080
+wget: can't connect to remote host (10.244.0.60): Connection refused
+command terminated with exit code 1
+
+$ kubectl exec client -- wget -q -T 3 -O- http://10.244.0.60:80 | grep title
+<title>Welcome to nginx!</title>
+
+$ kubectl apply -f fixed.yaml
+service/web-port-svc configured
+
+$ kubectl get endpoints web-port-svc
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+NAME           ENDPOINTS                       AGE
+web-port-svc   10.244.0.59:80,10.244.0.60:80   7s
+
+$ kubectl exec client -- wget -q -T 3 -O- http://web-port-svc | grep title
+<title>Welcome to nginx!</title>
+

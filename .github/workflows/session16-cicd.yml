@@ -1,0 +1,133 @@
+name: Session 16 CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "session-16-github-actions/session16Assignment/**"
+      - ".github/workflows/session16-cicd.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "session-16-github-actions/session16Assignment/**"
+  workflow_dispatch:
+
+# the app is in a subfolder of this repo, so run everything from there
+defaults:
+  run:
+    working-directory: session-16-github-actions/session16Assignment
+
+env:
+  IMAGE_NAME: session16-calculator
+
+jobs:
+  # ---------- CI ----------
+  test:
+    name: Test (python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: python -m pytest -v --junitxml=test-results.xml
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-py${{ matrix.python-version }}
+          path: session-16-github-actions/session16Assignment/test-results.xml
+
+  build:
+    name: Build Docker image
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build image
+        run: docker build -t $IMAGE_NAME:${{ github.sha }} .
+
+      - name: Smoke test the image
+        run: |
+          docker run -d -p 5000:5000 --name app $IMAGE_NAME:${{ github.sha }}
+          sleep 3
+          curl -sf http://localhost:5000/health
+          curl -sf http://localhost:5000/add/2/3
+
+      - name: Save image to a file
+        run: docker save $IMAGE_NAME:${{ github.sha }} | gzip > image.tar.gz
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: session-16-github-actions/session16Assignment/image.tar.gz
+          retention-days: 1
+
+  # ---------- CD ----------
+  deploy:
+    name: Push to GHCR and deploy
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    defaults:
+      run:
+        working-directory: .   # no checkout in this job, so the subfolder doesn't exist
+    steps:
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+
+      - name: Load image
+        run: gunzip -c image.tar.gz | docker load
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Tag and push
+        run: |
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          REMOTE=ghcr.io/$OWNER/$IMAGE_NAME
+          docker tag $IMAGE_NAME:${{ github.sha }} $REMOTE:${{ github.sha }}
+          docker tag $IMAGE_NAME:${{ github.sha }} $REMOTE:latest
+          docker push $REMOTE:${{ github.sha }}
+          docker push $REMOTE:latest
+          echo "REMOTE=$REMOTE" >> $GITHUB_ENV
+
+      - name: Use a repo secret
+        env:
+          DEPLOY_MESSAGE: ${{ secrets.DEPLOY_MESSAGE }}
+        run: |
+          if [ -z "$DEPLOY_MESSAGE" ]; then
+            echo "DEPLOY_MESSAGE secret is not set"
+          else
+            echo "DEPLOY_MESSAGE is set, GitHub hides it in logs: $DEPLOY_MESSAGE"
+          fi
+
+      - name: Deploy (pull from GHCR and run)
+        run: |
+          docker rmi $REMOTE:latest
+          docker pull $REMOTE:latest
+          docker run -d -p 5000:5000 --name calculator $REMOTE:latest
+          sleep 3
+          curl -sf http://localhost:5000/health
+          echo ""
+          echo "Deployed $REMOTE:latest"
