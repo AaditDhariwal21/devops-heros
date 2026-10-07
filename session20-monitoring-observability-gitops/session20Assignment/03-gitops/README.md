@@ -75,7 +75,26 @@ gitops-web   ClusterIP   10.111.61.246   <none>        80/TCP    0s     <- recre
 
 ## 4. The proper way - change it in git
 
-GIT_CHANGE_PLACEHOLDER
+Changed `replicas: 2` to `replicas: 3` in app/deployment.yaml, then commit + push. No kubectl.
+
+```
+$ git log --oneline -1 -- app/deployment.yaml
+d2464e2 Session 18-20 terraform + gitops
+
+$ kubectl get deploy gitops-web -n session20
+gitops-web   3/3     3            3           70m
+
+$ kubectl get pods -n session20
+gitops-web-675b968dd8-7lmbd   1/1     Running   0          70m
+gitops-web-675b968dd8-kws8b   1/1     Running   0          70m
+gitops-web-675b968dd8-q6zdr   1/1     Running   0          14s     <- new pod from the git change
+
+sync history (revision = git commit):
+0  fd5bf187519c7ee7858052b6a72eab7d62d371e0  2026-10-07T13:56:09Z    first sync
+1  d2464e239b7238977d7ccee2594131dcf373a37c  2026-10-07T15:06:49Z    replicas -> 3
+```
+
+Argo's history lines up with git commits, so rolling back = `git revert`.
 
 ![argo ui](../screenshot-3-argocd.png)
 

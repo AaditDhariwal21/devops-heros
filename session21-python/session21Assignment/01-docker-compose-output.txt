@@ -1,0 +1,69 @@
+===== docker compose
+
+$ docker compose ps
+NAME                          STATUS          PORTS
+session21-python-backend-1    Up 17 seconds   0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp
+session21-python-frontend-1   Up 37 seconds   0.0.0.0:3000->80/tcp, [::]:3000->80/tcp
+session21-python-postgres-1   Up 37 seconds   0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp
+
+$ curl -s localhost:8000/health
+{"status":"UP"}
+
+$ curl -s localhost:8000/ready
+{"status":"READY"}
+
+$ curl -s -X POST localhost:8000/api/tasks -H Content-Type: application/json -d {"title":"Set up CI pipeline","priority":"HIGH","assignee":"Aadit"}
+{"title":"Set up CI pipeline","description":"","priority":"HIGH","status":"TODO","assignee":"Aadit","id":1,"created_at":"2026-10-07T15:16:24.376265Z"}
+
+$ curl -s -X POST localhost:8000/api/tasks -H Content-Type: application/json -d {"title":"Write Dockerfile","status":"DONE","assignee":"Aadit"}
+{"title":"Write Dockerfile","description":"","priority":"MEDIUM","status":"DONE","assignee":"Aadit","id":2,"created_at":"2026-10-07T15:16:24.435465Z"}
+
+$ curl -s -X POST localhost:8000/api/tasks -H Content-Type: application/json -d {"title":"Deploy with Helm","status":"IN_PROGRESS","priority":"HIGH"}
+{"title":"Deploy with Helm","description":"","priority":"HIGH","status":"IN_PROGRESS","assignee":"Unassigned","id":3,"created_at":"2026-10-07T15:16:24.495915Z"}
+
+$ curl -s -X POST localhost:8000/api/tasks -H Content-Type: application/json -d {"title":"Delete me"}
+{"title":"Delete me","description":"","priority":"MEDIUM","status":"TODO","assignee":"Unassigned","id":4,"created_at":"2026-10-07T15:16:24.527476Z"}
+
+$ curl -s -X PUT localhost:8000/api/tasks/1 -H Content-Type: application/json -d {"status":"IN_PROGRESS"}
+{"title":"Set up CI pipeline","description":"","priority":"HIGH","status":"IN_PROGRESS","assignee":"Aadit","id":1,"created_at":"2026-10-07T15:16:24.376265Z"}
+
+$ curl -s -X DELETE localhost:8000/api/tasks/4 -w "%{http_code}"
+204
+
+$ curl -s -X POST localhost:8000/api/tasks -H Content-Type: application/json -d {"title":""}
+{"detail":[{"type":"string_too_short","loc":["body","title"],"msg":"String should have at least 1 character","input":"","ctx":{"min_length":1}}]}
+
+$ curl -s localhost:8000/api/tasks/stats
+{"total":3,"todo":0,"inProgress":2,"done":1}
+
+--- same api through the frontend (nginx proxies /api to the backend container)
+
+$ curl -s localhost:3000/api/tasks
+[{"title":"Deploy with Helm","description":"","priority":"HIGH","status":"IN_PROGRESS","assignee":"Unassigned","id":3,"created_at":"2026-10-07T15:16:24.495915Z"},{"title":"Write Dockerfile","description":"","priority":"MEDIUM","status":"DONE","assignee":"Aadit","id":2,"created_at":"2026-10-07T15:16:24.435465Z"},{"title":"Set up CI pipeline","description":"","priority":"HIGH","status":"IN_PROGRESS","assignee":"Aadit","id":1,"created_at":"2026-10-07T15:16:24.376265Z"}]
+
+$ curl -s localhost:3000 | head -5
+<!doctype html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>TaskBoard</title>  <script type="module" crossorigin src="/assets/index-BhFpkPY_.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-DkMuKOF6.css">
+</head><body><div id="root"></div></body></html>
+
+
+$ curl -s localhost:8000/metrics | grep -E "^http_requests_total|^http_request_duration_seconds_count" | head -8
+http_requests_total{handler="/health",method="GET",status="2xx"} 2.0
+http_requests_total{handler="/ready",method="GET",status="2xx"} 1.0
+http_requests_total{handler="/api/tasks",method="POST",status="2xx"} 4.0
+http_requests_total{handler="/api/tasks/{task_id}",method="PUT",status="2xx"} 1.0
+http_requests_total{handler="/api/tasks/{task_id}",method="DELETE",status="2xx"} 1.0
+http_requests_total{handler="/api/tasks",method="POST",status="4xx"} 1.0
+http_requests_total{handler="/api/tasks/stats",method="GET",status="2xx"} 1.0
+http_requests_total{handler="/api/tasks",method="GET",status="2xx"} 1.0
+
+--- data is in postgres
+
+$ docker compose exec postgres psql -U taskboard -c "select id,title,status,priority from tasks"
+ id |       title        |   status    | priority 
+----+--------------------+-------------+----------
+  2 | Write Dockerfile   | DONE        | MEDIUM
+  3 | Deploy with Helm   | IN_PROGRESS | HIGH
+  1 | Set up CI pipeline | IN_PROGRESS | HIGH
+(3 rows)
+

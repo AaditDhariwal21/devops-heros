@@ -1,0 +1,30 @@
+# two services the chart forgot - added on top of the helm release, chart not edited
+
+# 1. frontend nginx.conf does proxy_pass http://backend:8000 (works in docker compose
+#    because the compose service is called "backend"). in k8s nothing is called backend,
+#    so nginx crashes on start: host not found in upstream "backend"
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: taskboard
+spec:
+  selector:
+    app: taskboard-backend
+  ports:
+    - port: 8000
+      targetPort: 8000
+---
+# 2. the ingress sends /api to taskboard-backend:8080, but the chart's service is
+#    called taskboard-taskboard-backend and listens on 8000
+apiVersion: v1
+kind: Service
+metadata:
+  name: taskboard-backend
+  namespace: taskboard
+spec:
+  selector:
+    app: taskboard-backend
+  ports:
+    - port: 8080
+      targetPort: 8000

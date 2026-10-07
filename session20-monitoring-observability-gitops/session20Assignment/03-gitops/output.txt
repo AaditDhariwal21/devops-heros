@@ -49,3 +49,26 @@ gitops-web   ClusterIP   10.110.108.37   <none>        80/TCP    26s
 gitops-web   ClusterIP   10.110.108.37   <none>        80/TCP    28s
 gitops-web   ClusterIP   10.111.61.246   <none>        80/TCP    0s
 
+===== 4. change replicas 2 -> 3 in git, commit, push (no kubectl)
+
+$ git log --oneline -1 -- app/deployment.yaml
+d2464e2 Session 18-20 terraform + gitops
+
+$ kubectl get application session20-gitops -n argocd
+NAME               SYNC STATUS   HEALTH STATUS
+session20-gitops   Synced        Healthy
+
+$ kubectl get deploy gitops-web -n session20
+NAME         READY   UP-TO-DATE   AVAILABLE   AGE
+gitops-web   3/3     3            3           70m
+
+$ kubectl get pods -n session20
+NAME                          READY   STATUS    RESTARTS   AGE
+gitops-web-675b968dd8-7lmbd   1/1     Running   0          70m
+gitops-web-675b968dd8-kws8b   1/1     Running   0          70m
+gitops-web-675b968dd8-q6zdr   1/1     Running   0          14s
+
+$ kubectl get application session20-gitops -n argocd -o jsonpath=... (sync history)
+0  fd5bf187519c7ee7858052b6a72eab7d62d371e0  2026-10-07T13:56:09Z
+1  d2464e239b7238977d7ccee2594131dcf373a37c  2026-10-07T15:06:49Z
+

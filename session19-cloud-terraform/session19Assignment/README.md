@@ -136,7 +136,25 @@ $ aws ec2 describe-subnets ... --output table
 
 ## Destroy
 
-DESTROY_PLACEHOLDER
+Output in destroy-output.txt.
+
+```
+$ terraform destroy -auto-approve
+aws_instance.web: Destruction complete after 21s
+aws_route_table_association.public: Destruction complete after 2s
+aws_security_group.web: Destruction complete after 3s
+aws_subnet.public: Destruction complete after 2s
+aws_route_table.public: Destruction complete after 2s
+aws_internet_gateway.main: Destruction complete after 2s
+aws_vpc.main: Destruction complete after 1s
+Destroy complete! Resources: 12 destroyed.
+
+$ aws ec2 describe-vpcs --filters Name=tag:Project,Values=session19 --query 'length(Vpcs)'
+0
+```
+
+Exact reverse of the apply - EC2 first, VPC last, because the VPC can't be deleted while
+anything is still inside it.
 
 ![destroy](screenshot-5-destroy.png)
 

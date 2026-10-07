@@ -90,7 +90,24 @@ $ aws s3api get-bucket-encryption ...
 
 ## Destroy
 
-DESTROY_PLACEHOLDER
+Output in destroy-output.txt.
+
+```
+$ terraform destroy -auto-approve
+aws_s3_object.hello: Destroying... [id=aadit-session18-demo-4bd20df8/hello.txt]
+aws_s3_bucket_versioning.demo: Destruction complete after 2s
+aws_s3_bucket_public_access_block.demo: Destruction complete after 2s
+aws_s3_bucket.demo: Destroying... [id=aadit-session18-demo-4bd20df8]
+aws_s3_bucket.demo: Destruction complete after 1s
+random_id.suffix: Destruction complete after 0s
+Destroy complete! Resources: 6 destroyed.
+
+$ terraform state list          (empty)
+$ aws s3api list-buckets --query 'Buckets[].Name'
+[]
+```
+
+The bucket itself goes last - terraform deletes the things that depend on it first.
 
 ![destroy](screenshot-3-destroy.png)
 

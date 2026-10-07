@@ -1,0 +1,194 @@
+$ kubectl apply -f k8s/namespace.yaml
+namespace/taskboard created
+
+$ helm upgrade --install taskboard ./helm/taskboard -n taskboard -f helm/taskboard/values-dev.yaml --set backend.image=taskboard-backend --set backend.tag=local --set frontend.image=taskboard-frontend --set frontend.tag=local --set monitoring.serviceMonitor.enabled=false
+Release "taskboard" does not exist. Installing it now.
+NAME: taskboard
+LAST DEPLOYED: Wed Oct  7 20:49:36 2026
+NAMESPACE: taskboard
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+TEST SUITE: None
+
+$ kubectl get pods -n taskboard
+NAME                                           READY   STATUS    RESTARTS      AGE
+taskboard-frontend-bbb7b895f-rgkfx             0/1     Error     3 (33s ago)   60s
+taskboard-postgres-755b4497b-ddwg6             1/1     Running   0             60s
+taskboard-taskboard-backend-7d8fb7697c-vhkm2   1/1     Running   3 (44s ago)   60s
+
+$ kubectl get svc,ingress -n taskboard
+NAME                                  TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)    AGE
+service/taskboard-frontend            ClusterIP   10.107.156.122   <none>        80/TCP     60s
+service/taskboard-postgres            ClusterIP   10.98.58.239     <none>        5432/TCP   60s
+service/taskboard-taskboard-backend   ClusterIP   10.103.134.158   <none>        8000/TCP   60s
+
+NAME                                  CLASS   HOSTS             ADDRESS        PORTS   AGE
+ingress.networking.k8s.io/taskboard   nginx   taskboard.local   192.168.49.2   80      60s
+
+----- investigating
+
+$ kubectl logs -n taskboard deploy/taskboard-frontend --tail=3
+/docker-entrypoint.sh: Configuration complete; ready for start up
+2026/10/07 15:20:26 [emerg] 1#1: host not found in upstream "backend" in /etc/nginx/conf.d/default.conf:13
+nginx: [emerg] host not found in upstream "backend" in /etc/nginx/conf.d/default.conf:13
+
+$ kubectl logs -n taskboard deploy/taskboard-taskboard-backend --previous --tail=2
+	Is the server running on that host and accepting TCP/IP connections?
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+
+$ kubectl describe ingress taskboard -n taskboard
+Name:             taskboard
+Labels:           app.kubernetes.io/managed-by=Helm
+Namespace:        taskboard
+Address:          192.168.49.2
+Ingress Class:    nginx
+Default backend:  <default>
+Rules:
+  Host             Path  Backends
+  ----             ----  --------
+  taskboard.local  
+                   /api   taskboard-backend:8080 (<error: services "taskboard-backend" not found>)
+                   /      taskboard-frontend:80 ()
+Annotations:       meta.helm.sh/release-name: taskboard
+                   meta.helm.sh/release-namespace: taskboard
+Events:
+  Type    Reason  Age                From                      Message
+  ----    ------  ----               ----                      -------
+  Normal  Sync    42s (x2 over 66s)  nginx-ingress-controller  Scheduled for sync
+
+----- fix
+
+$ kubectl apply -f session21Assignment/k8s-fixes.yaml
+service/backend created
+service/taskboard-backend created
+
+$ kubectl rollout restart deploy/taskboard-frontend -n taskboard
+deployment.apps/taskboard-frontend restarted
+
+$ kubectl get pods -n taskboard
+NAME                                           READY   STATUS    RESTARTS      AGE
+taskboard-frontend-69f9cbd8c6-2r4br            1/1     Running   0             16s
+taskboard-postgres-755b4497b-ddwg6             1/1     Running   0             96s
+taskboard-taskboard-backend-7d8fb7697c-vhkm2   1/1     Running   3 (80s ago)   96s
+
+$ kubectl describe ingress taskboard -n taskboard | grep -A3 Path
+  Host             Path  Backends
+  ----             ----  --------
+  taskboard.local  
+                   /api   taskboard-backend:8080 (10.244.0.138:8000)
+
+$ (from inside the cluster) GET http://ingress-nginx-controller.ingress-nginx.svc/api/tasks/stats  with header Host: taskboard.local
+{"total":0,"todo":0,"inProgress":0,"done":0}
+
+
+$ kubectl exec -n taskboard deploy/taskboard-taskboard-backend -- python /tmp/ingress-test.py
+POST /api/tasks (201, '{"title":"Deploy TaskBoard with Helm","description":"","priority":"MEDIUM","status":"DONE","assignee":"Aadit","id":1,"created_at":"2026-10-07T15:21:36.222163Z"}')
+POST /api/tasks (201, '{"title":"Fix ingress service name","description":"","priority":"MEDIUM","status":"DONE","assignee":"Aadit","id":2,"created_at":"2026-10-07T15:21:36.230265Z"}')
+POST /api/tasks (201, '{"title":"Load test the HPA","description":"","priority":"MEDIUM","status":"IN_PROGRESS","assignee":"Aadit","id":3,"created_at":"2026-10-07T15:21:36.234948Z"}')
+POST /api/tasks (201, '{"title":"Write README","description":"","priority":"MEDIUM","status":"TODO","assignee":"Aadit","id":4,"created_at":"2026-10-07T15:21:36.239131Z"}')
+GET  /api/tasks/stats (200, '{"total":4,"todo":1,"inProgress":1,"done":2}')
+GET  / 200 <!doctype html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+
+----- HPA (values-dev turns it off, so turned it back on)
+
+Release "taskboard" has been upgraded. Happy Helming!
+STATUS: deployed
+REVISION: 2
+
+$ kubectl get hpa -n taskboard
+NAME                REFERENCE                                TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+taskboard-backend   Deployment/taskboard-taskboard-backend   cpu: 8%/60%   2         6         2          16s
+
+$ kubectl apply -f session21Assignment/load-generator.yaml
+deployment.apps/load-generator created
+
+$ kubectl get hpa -n taskboard -w
+taskboard-backend   Deployment/taskboard-taskboard-backend   cpu: 8%/60%   2     6     2     16s
+taskboard-backend   Deployment/taskboard-taskboard-backend   cpu: 343%/60%   2     6     2     75s
+taskboard-backend   Deployment/taskboard-taskboard-backend   cpu: 343%/60%   2     6     4     91s
+taskboard-backend   Deployment/taskboard-taskboard-backend   cpu: 343%/60%   2     6     6     106s
+taskboard-backend   Deployment/taskboard-taskboard-backend   cpu: 273%/60%   2     6     6     2m16s
+taskboard-backend   Deployment/taskboard-taskboard-backend   cpu: 159%/60%   2     6     6     3m16s
+
+$ kubectl get pods -n taskboard -l app=taskboard-backend
+NAME                                           READY   STATUS    RESTARTS        AGE
+taskboard-taskboard-backend-7d8fb7697c-6zsmt   1/1     Running   0               4m16s
+taskboard-taskboard-backend-7d8fb7697c-dvp7v   1/1     Running   0               2m45s
+taskboard-taskboard-backend-7d8fb7697c-pwdv4   1/1     Running   0               3m1s
+taskboard-taskboard-backend-7d8fb7697c-qq582   1/1     Running   0               3m1s
+taskboard-taskboard-backend-7d8fb7697c-tvbnx   1/1     Running   0               2m45s
+taskboard-taskboard-backend-7d8fb7697c-vhkm2   1/1     Running   3 (6m11s ago)   6m27s
+
+$ kubectl top pods -n taskboard -l app=taskboard-backend
+NAME                                           CPU(cores)   MEMORY(bytes)   
+taskboard-taskboard-backend-7d8fb7697c-6zsmt   162m         80Mi            
+taskboard-taskboard-backend-7d8fb7697c-dvp7v   161m         62Mi            
+taskboard-taskboard-backend-7d8fb7697c-pwdv4   162m         62Mi            
+taskboard-taskboard-backend-7d8fb7697c-qq582   159m         62Mi            
+taskboard-taskboard-backend-7d8fb7697c-tvbnx   158m         62Mi            
+taskboard-taskboard-backend-7d8fb7697c-vhkm2   154m         66Mi            
+
+$ kubectl delete -f session21Assignment/load-generator.yaml
+deployment.apps "load-generator" deleted from taskboard namespace
+
+===== troubleshooting lab
+
+--- broken image
+
+$ kubectl apply -f troubleshooting/broken-image.yaml
+deployment.apps/taskboard-broken-image created
+
+$ kubectl get pods -n taskboard -l app=broken-image
+NAME                                      READY   STATUS             RESTARTS   AGE
+taskboard-broken-image-6669966b5b-jhvvw   0/1     ImagePullBackOff   0          25s
+
+$ kubectl describe pod taskboard-broken-image-6669966b5b-jhvvw -n taskboard   (Events)
+Events:
+  Type     Reason     Age               From               Message
+  ----     ------     ----              ----               -------
+  Normal   Scheduled  25s               default-scheduler  Successfully assigned taskboard/taskboard-broken-image-6669966b5b-jhvvw to minikube
+  Normal   BackOff    23s               kubelet            Back-off pulling image "ghcr.io/example/taskboard-backend:does-not-exist"
+  Warning  Failed     23s               kubelet            Error: ImagePullBackOff
+  Normal   Pulling    8s (x2 over 24s)  kubelet            Pulling image "ghcr.io/example/taskboard-backend:does-not-exist"
+  Warning  Failed     7s (x2 over 24s)  kubelet            Failed to pull image "ghcr.io/example/taskboard-backend:does-not-exist": failed to pull and unpack image "ghcr.io/example/taskboard-backend:does-not-exist": failed to resolve reference "ghcr.io/example/taskboard-backend:does-not-exist": failed to authorize: failed to fetch anonymous token: unexpected status from GET request to https://ghcr.io/token?scope=repository%3Aexample%2Ftaskboard-backend%3Apull&service=ghcr.io: 403 Forbidden
+  Warning  Failed     7s (x2 over 24s)  kubelet            Error: ErrImagePull
+
+$ kubectl get events -n taskboard --sort-by=.lastTimestamp | grep broken-image | tail -4
+23s         Warning   Failed                  pod/taskboard-broken-image-6669966b5b-jhvvw         Error: ImagePullBackOff
+8s          Normal    Pulling                 pod/taskboard-broken-image-6669966b5b-jhvvw         Pulling image "ghcr.io/example/taskboard-backend:does-not-exist"
+7s          Warning   Failed                  pod/taskboard-broken-image-6669966b5b-jhvvw         Error: ErrImagePull
+7s          Warning   Failed                  pod/taskboard-broken-image-6669966b5b-jhvvw         Failed to pull image "ghcr.io/example/taskboard-backend:does-not-exist": failed to pull and unpack image "ghcr.io/example/taskboard-backend:does-not-exist": failed to resolve reference "ghcr.io/example/taskboard-backend:does-not-exist": failed to authorize: failed to fetch anonymous token: unexpected status from GET request to https://ghcr.io/token?scope=repository%3Aexample%2Ftaskboard-backend%3Apull&service=ghcr.io: 403 Forbidden
+
+--- broken service
+
+$ kubectl apply -f troubleshooting/broken-service.yaml
+service/broken-service created
+
+$ kubectl get svc broken-service -n taskboard
+NAME             TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+broken-service   ClusterIP   10.109.36.100   <none>        8080/TCP   1s
+
+$ kubectl get endpoints broken-service backend -n taskboard
+
+NAME             ENDPOINTS                                                           AGE
+broken-service   <none>                                                              1s
+backend          10.244.0.138:8000,10.244.0.142:8000,10.244.0.149:8000 + 3 more...   5m44s
+
+$ kubectl get pods -n taskboard --show-labels
+NAME                                           READY   STATUS             RESTARTS        AGE     LABELS
+taskboard-broken-image-6669966b5b-jhvvw        0/1     ImagePullBackOff   0               26s     app=broken-image,pod-template-hash=6669966b5b
+taskboard-frontend-69f9cbd8c6-2r4br            1/1     Running            0               5m43s   app=taskboard-frontend,pod-template-hash=69f9cbd8c6
+taskboard-postgres-755b4497b-ddwg6             1/1     Running            0               7m3s    app=taskboard-postgres,pod-template-hash=755b4497b
+taskboard-taskboard-backend-7d8fb7697c-6zsmt   1/1     Running            0               4m52s   app=taskboard-backend,pod-template-hash=7d8fb7697c
+taskboard-taskboard-backend-7d8fb7697c-dvp7v   1/1     Running            0               3m21s   app=taskboard-backend,pod-template-hash=7d8fb7697c
+taskboard-taskboard-backend-7d8fb7697c-pwdv4   1/1     Running            0               3m37s   app=taskboard-backend,pod-template-hash=7d8fb7697c
+taskboard-taskboard-backend-7d8fb7697c-qq582   1/1     Running            0               3m37s   app=taskboard-backend,pod-template-hash=7d8fb7697c
+taskboard-taskboard-backend-7d8fb7697c-tvbnx   1/1     Running            0               3m21s   app=taskboard-backend,pod-template-hash=7d8fb7697c
+taskboard-taskboard-backend-7d8fb7697c-vhkm2   1/1     Running            3 (6m47s ago)   7m3s    app=taskboard-backend,pod-template-hash=7d8fb7697c
+
+--- cleanup
+$ kubectl delete -f troubleshooting/broken-image.yaml -f troubleshooting/broken-service.yaml
+deployment.apps "taskboard-broken-image" deleted from taskboard namespace
+service "broken-service" deleted from taskboard namespace
+

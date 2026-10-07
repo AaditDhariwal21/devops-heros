@@ -1,0 +1,12 @@
+$ cd backend
+$ pytest -q        (original test from class)
+1 failed, 2 passed in 0.88s
+E       sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: tasks
+E       sqlite3.OperationalError: no such table: tasks
+FAILED tests/test_api.py::test_create_task_validation - sqlalchemy.exc.Operat...
+
+$ pytest -q ../session21Assignment/test_api_fixed.py   (with TestClient in a with block)
+::test_health PASSED                                                     [ 33%]
+::test_root PASSED                                                       [ 66%]
+::test_create_task_validation PASSED                                     [100%]
+============================== 3 passed in 0.49s ==============================
