@@ -1,0 +1,51 @@
+===== 1. create the argo application (points at my github repo)
+
+$ kubectl apply -f argocd-application.yaml
+application.argoproj.io/session20-gitops created
+
+$ kubectl get application session20-gitops -n argocd
+NAME               SYNC STATUS   HEALTH STATUS
+session20-gitops   Synced        Healthy
+
+$ kubectl get all -n session20
+NAME                              READY   STATUS    RESTARTS   AGE
+pod/gitops-web-675b968dd8-7lmbd   1/1     Running   0          14s
+pod/gitops-web-675b968dd8-kws8b   1/1     Running   0          14s
+
+NAME                 TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
+service/gitops-web   ClusterIP   10.109.186.194   <none>        80/TCP    15s
+
+NAME                         READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/gitops-web   2/2     2            2           15s
+
+NAME                                    DESIRED   CURRENT   READY   AGE
+replicaset.apps/gitops-web-675b968dd8   2         2         2       14s
+
+===== 2. self-heal: change replicas by hand (not in git)
+
+$ kubectl scale deploy gitops-web -n session20 --replicas=5
+deployment.apps/gitops-web scaled
+
+$ kubectl get deploy gitops-web -n session20 -w   (running in another terminal)
+NAME         READY   UP-TO-DATE   AVAILABLE   AGE
+gitops-web   2/2     2            2           36s
+gitops-web   2/5     2            2           38s
+gitops-web   2/5     2            2           38s
+gitops-web   2/5     2            2           38s
+gitops-web   2/5     5            2           38s
+gitops-web   2/2     5            2           38s
+gitops-web   2/2     5            2           39s
+gitops-web   2/2     5            2           39s
+gitops-web   2/2     2            2           39s
+
+===== 3. self-heal: delete the service by hand
+
+$ kubectl delete svc gitops-web -n session20
+service "gitops-web" deleted from session20 namespace
+
+$ kubectl get svc -n session20 -w   (running in another terminal)
+NAME         TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE
+gitops-web   ClusterIP   10.110.108.37   <none>        80/TCP    26s
+gitops-web   ClusterIP   10.110.108.37   <none>        80/TCP    28s
+gitops-web   ClusterIP   10.111.61.246   <none>        80/TCP    0s
+

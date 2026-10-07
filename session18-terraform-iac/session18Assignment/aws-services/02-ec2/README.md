@@ -58,7 +58,7 @@ running -> shutting-down -> terminated
 A couple of CLI commands I tried:
 
 ```bash
-aws ec2 describe-instances --region ap-south-1
+aws ec2 describe-instances --region ap-southeast-2
 aws ec2 stop-instances --instance-ids i-0123456789abcdef0
 ```
 

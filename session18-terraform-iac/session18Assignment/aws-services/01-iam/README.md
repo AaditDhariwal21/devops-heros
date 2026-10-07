@@ -8,7 +8,7 @@ It's global (not tied to a region) and it's free to use.
 ## Users
 A user is one person or one app that needs access to AWS.
 Each user can have a password (for the console) and/or access keys (for CLI / Terraform).
-For this course I made a user called `terraform-student` and Terraform uses its access keys.
+For this course I made a user called `AaditDhariwal` and Terraform uses its access keys.
 
 ## Groups
 A group is just a bunch of users. You attach permissions to the group and every user inside gets them.
@@ -50,7 +50,7 @@ So the order is basically: explicit deny > explicit allow > default deny.
 
 ## Least privilege
 Give only the permissions needed for the job, nothing extra.
-My `terraform-student` user only has AmazonEC2FullAccess + AmazonS3FullAccess, not AdministratorAccess.
+My `AaditDhariwal` user only has AmazonEC2FullAccess + AmazonS3FullAccess, not AdministratorAccess.
 So even if the keys leak, someone can't go and delete IAM users or touch billing.
 
 ## IAM best practices

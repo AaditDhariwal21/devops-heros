@@ -1,4 +1,4 @@
 # all variables have defaults, copy to terraform.tfvars only if you want to change them
-region        = "ap-south-1"
+region        = "ap-southeast-2"
 project       = "session19"
 instance_type = "t3.micro"

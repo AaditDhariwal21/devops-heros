@@ -8,7 +8,7 @@ It's built for 99.999999999% (11 nines) durability, so losing data is very unlik
 ## Buckets
 A bucket is the top-level container where files go.
 Bucket names are globally unique across ALL AWS accounts, so `test` is already taken.
-You pick a region when creating it (I use ap-south-1, Mumbai).
+You pick a region when creating it (I use ap-southeast-2, Sydney - my AWS project only allows that region).
 Lowercase letters, numbers, hyphens and dots only, 3-63 characters.
 
 ## Objects
