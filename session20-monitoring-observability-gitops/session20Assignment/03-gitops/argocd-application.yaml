@@ -1,0 +1,21 @@
+# applied once by hand - kept OUTSIDE app/ so argo doesn't try to manage itself
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: session20-gitops
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/AaditDhariwal21/devops-heros.git
+    targetRevision: main
+    path: session20-monitoring-observability-gitops/session20Assignment/03-gitops/app
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: session20
+  syncPolicy:
+    automated:
+      prune: true     # delete things that were removed from git
+      selfHeal: true  # undo manual kubectl changes
+    syncOptions:
+      - CreateNamespace=true

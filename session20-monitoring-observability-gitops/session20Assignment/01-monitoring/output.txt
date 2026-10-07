@@ -1,0 +1,75 @@
+===== metrics
+
+$ curl -s localhost:5000/metrics | grep app_requests_total
+app_requests_total{path="/",status="200"} 200.0
+
+$ promql: up
+   {'__name__': 'up', 'instance': 'app:5000', 'job': 'app'} => 1
+   {'__name__': 'up', 'instance': 'node-exporter:9100', 'job': 'node'} => 1
+   {'__name__': 'up', 'instance': 'localhost:9090', 'job': 'prometheus'} => 1
+
+$ promql: 100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[1m])) * 100)
+   {} => 13.24698
+
+$ promql: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100
+   {'instance': 'node-exporter:9100', 'job': 'node'} => 31.92461
+
+$ promql: sum by (status) (rate(app_requests_total[1m]))
+   {'status': '200'} => 3.383231
+
+$ promql: histogram_quantile(0.95, sum by (le) (rate(app_request_seconds_bucket{path="/"}[1m])))
+   {} => 0.235986
+
+===== app health
+
+$ curl localhost:5000/health
+{"status":"healthy"}
+
+
+$ curl localhost:9090/api/v1/alerts
+   (no alerts)
+
+===== alert demo 1: send errors (1 in 3 requests is /error)
+
+--- after ~25s
+$ curl localhost:9090/api/v1/alerts
+   HighErrorRate pending - error rate is 13.26%
+
+--- after ~55s
+$ promql: sum(rate(app_requests_total{status="500"}[1m])) / sum(rate(app_requests_total[1m]))
+   {} => 0.310938
+
+$ curl localhost:9090/api/v1/alerts
+   HighErrorRate firing - error rate is 31.75%
+
+===== logs
+
+$ docker compose logs app --tail 6
+2026-10-07 13:25:19,803 INFO GET / 200
+2026-10-07 13:25:19,803 INFO 172.20.0.1 - - [07/Oct/2026 13:25:19] "GET / HTTP/1.1" 200 -
+2026-10-07 13:25:20,001 INFO GET / 200
+2026-10-07 13:25:20,001 INFO 172.20.0.1 - - [07/Oct/2026 13:25:20] "GET / HTTP/1.1" 200 -
+2026-10-07 13:25:20,036 ERROR GET /error 500 - something broke
+2026-10-07 13:25:20,036 INFO 172.20.0.1 - - [07/Oct/2026 13:25:20] "GET /error HTTP/1.1" 500 -
+
+===== alert demo 2: app goes down
+
+$ docker compose stop app
+ Container s20-app Stopping 
+ Container s20-app Stopped 
+$ promql: up{job="app"}
+   {'__name__': 'up', 'instance': 'app:5000', 'job': 'app'} => 0
+
+$ curl localhost:9090/api/v1/alerts
+   AppDown firing - the app is down
+   HighErrorRate firing - error rate is 33.33%
+
+$ docker compose start app
+ Container s20-app Starting 
+ Container s20-app Started 
+$ promql: up{job="app"}
+   {'__name__': 'up', 'instance': 'app:5000', 'job': 'app'} => 1
+
+$ curl localhost:9090/api/v1/alerts
+   HighErrorRate firing - error rate is 33.33%
+

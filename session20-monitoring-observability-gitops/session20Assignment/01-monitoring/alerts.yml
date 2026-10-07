@@ -1,0 +1,36 @@
+groups:
+  - name: demo-alerts
+    rules:
+      # app health - prometheus can't scrape the app
+      - alert: AppDown
+        expr: up{job="app"} == 0
+        for: 15s
+        labels:
+          severity: critical
+        annotations:
+          summary: "the app is down"
+
+      # more than 10% of requests are errors
+      - alert: HighErrorRate
+        expr: sum(rate(app_requests_total{status="500"}[1m])) / sum(rate(app_requests_total[1m])) > 0.1
+        for: 15s
+        labels:
+          severity: warning
+        annotations:
+          summary: "error rate is {{ $value | humanizePercentage }}"
+
+      - alert: HighCPU
+        expr: 100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[1m])) * 100) > 80
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "cpu is {{ $value | printf \"%.0f\" }}%"
+
+      - alert: HighMemory
+        expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 90
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "memory is {{ $value | printf \"%.0f\" }}%"

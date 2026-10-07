@@ -1,0 +1,3 @@
+# session18 .gitignore ignores terraform.tfvars, but mine has no secrets
+# (just region + bucket name) and the task wants it committed
+!terraform.tfvars
