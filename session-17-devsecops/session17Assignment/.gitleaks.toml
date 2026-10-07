@@ -1,0 +1,5 @@
+# secret scanning config - use all the default gitleaks rules
+title = "session17 gitleaks config"
+
+[extend]
+useDefault = true

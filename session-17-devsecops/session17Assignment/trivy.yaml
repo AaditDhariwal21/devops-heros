@@ -1,0 +1,10 @@
+# image scan config - this is the security gate for the image
+severity:
+  - HIGH
+  - CRITICAL
+exit-code: 1              # fail the pipeline if anything HIGH/CRITICAL is found
+scan:
+  scanners:
+    - vuln                # secrets are already checked by gitleaks
+vulnerability:
+  ignore-unfixed: true    # only fail on vulns that actually have a fix

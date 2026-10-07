@@ -1,0 +1,3 @@
+# SAST config - tests use assert, that's fine, so skip the tests folder
+exclude_dirs:
+  - tests

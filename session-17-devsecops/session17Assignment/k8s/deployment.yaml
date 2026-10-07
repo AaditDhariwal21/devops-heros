@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: session17-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: session17-app
+  template:
+    metadata:
+      labels:
+        app: session17-app
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: app
+          image: IMAGE_PLACEHOLDER   # pipeline replaces this with ghcr.io/...:<sha>
+          ports:
+            - containerPort: 5000
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false

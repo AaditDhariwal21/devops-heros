@@ -1,0 +1,212 @@
+name: Session 17 DevSecOps
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "session-17-devsecops/session17Assignment/**"
+      - ".github/workflows/session17-devsecops.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "session-17-devsecops/session17Assignment/**"
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: session-17-devsecops/session17Assignment
+
+env:
+  IMAGE_NAME: session17-devsecops
+  GITLEAKS_VERSION: "8.30.1"
+  TRIVY_VERSION: "0.74.0"
+
+jobs:
+  # 1. build + unit test
+  build-test:
+    name: Build & Unit Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Build (compile check)
+        run: python -m compileall -q app && echo "app compiles OK"
+      - name: Unit tests
+        run: python -m pytest -v --cov=app --cov-report=term-missing
+
+  # 2. SAST - scan my code for insecure patterns
+  sast:
+    name: SAST (Bandit)
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install bandit==1.9.4
+      - name: Bandit scan
+        run: bandit -c bandit.yaml -r . --severity-level medium
+
+  # 3. SCA - check dependencies for known CVEs
+  sca:
+    name: SCA (pip-audit)
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit==2.10.1
+      - name: pip-audit
+        run: pip-audit -r requirements.txt
+
+  # 4. secret scanning
+  secret-scan:
+    name: Secret Scan (Gitleaks)
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install gitleaks
+        working-directory: .
+        run: |
+          curl -sSLO https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz
+          curl -sSLO https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_checksums.txt
+          grep linux_x64.tar.gz gitleaks_${GITLEAKS_VERSION}_checksums.txt | sha256sum -c -
+          tar -xzf gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz gitleaks
+          sudo mv gitleaks /usr/local/bin/
+      - name: Gitleaks scan
+        run: gitleaks dir . --config .gitleaks.toml --redact -v
+
+  # 5. docker build
+  docker-build:
+    name: Docker Build
+    needs: [sast, sca, secret-scan]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build image
+        run: docker build -t $IMAGE_NAME:${{ github.sha }} .
+      - name: Save image
+        run: docker save $IMAGE_NAME:${{ github.sha }} | gzip > image.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: session-17-devsecops/session17Assignment/image.tar.gz
+          retention-days: 1
+
+  # 6. container image scan
+  image-scan:
+    name: Image Scan (Trivy)
+    needs: docker-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: session-17-devsecops/session17Assignment
+      - name: Load image
+        run: gunzip -c image.tar.gz | docker load
+      - name: Install trivy
+        working-directory: .
+        run: |
+          curl -sSLO https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz
+          curl -sSLO https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_checksums.txt
+          grep Linux-64bit.tar.gz trivy_${TRIVY_VERSION}_checksums.txt | sha256sum -c -
+          tar -xzf trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz trivy
+          sudo mv trivy /usr/local/bin/
+      - name: Trivy scan (fails on fixable HIGH/CRITICAL)
+        run: trivy image --config trivy.yaml $IMAGE_NAME:${{ github.sha }}
+
+  # 7. security gate - everything above must have passed
+  security-gate:
+    name: Security Gate
+    needs: [build-test, sast, sca, secret-scan, image-scan]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all security checks passed
+        working-directory: .
+        run: |
+          echo "unit tests : ${{ needs.build-test.result }}"
+          echo "sast       : ${{ needs.sast.result }}"
+          echo "sca        : ${{ needs.sca.result }}"
+          echo "secrets    : ${{ needs.secret-scan.result }}"
+          echo "image scan : ${{ needs.image-scan.result }}"
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'skipped') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "GATE FAILED - image will NOT be pushed"
+            exit 1
+          fi
+          echo "GATE PASSED - image can be pushed"
+
+  # 8. push image (only the image that was scanned)
+  push:
+    name: Push Image (GHCR)
+    needs: security-gate
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    defaults:
+      run:
+        working-directory: .
+    outputs:
+      image: ${{ steps.tag.outputs.image }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+      - name: Load image
+        run: gunzip -c image.tar.gz | docker load
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Tag and push
+        id: tag
+        run: |
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          REMOTE=ghcr.io/$OWNER/$IMAGE_NAME
+          docker tag $IMAGE_NAME:${{ github.sha }} $REMOTE:${{ github.sha }}
+          docker tag $IMAGE_NAME:${{ github.sha }} $REMOTE:latest
+          docker push $REMOTE:${{ github.sha }}
+          docker push $REMOTE:latest
+          echo "image=$REMOTE:${{ github.sha }}" >> $GITHUB_OUTPUT
+
+  # 9. deploy to a kind (kubernetes in docker) cluster on the runner
+  deploy:
+    name: Deploy to Kubernetes
+    needs: push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v6
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.14.0
+      - name: Secret so k8s can pull from GHCR
+        run: |
+          kubectl create secret docker-registry ghcr-secret \
+            --docker-server=ghcr.io \
+            --docker-username=${{ github.actor }} \
+            --docker-password=${{ secrets.GITHUB_TOKEN }}
+      - name: Deploy
+        run: |
+          sed -i "s|IMAGE_PLACEHOLDER|${{ needs.push.outputs.image }}|" k8s/deployment.yaml
+          kubectl apply -f k8s/
+          kubectl rollout status deployment/session17-app --timeout=120s
+          kubectl get pods -o wide
+      - name: Smoke test
+        run: |
+          kubectl port-forward service/session17-app 8080:80 &
+          sleep 3
+          curl -sf http://localhost:8080/health
+          echo ""
+          curl -sf http://localhost:8080/
